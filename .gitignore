@@ -2,4 +2,4 @@
 *.csv
 images/
 market_history/
-/telegram_key
+/telegram_key.txt
