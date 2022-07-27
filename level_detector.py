@@ -43,7 +43,7 @@ def extremes_search(in_array):
                 indexes_min.append(i)
     return val_max, val_min, indexes_max, indexes_min
 
-def touch_count(in_array, threshold):
+def touch_count(in_array, threshold, touches_count):
     touches = []
     level_prices = []
     for i in in_array:
@@ -56,7 +56,7 @@ def touch_count(in_array, threshold):
         distance_to_level = abs(in_array[i] - in_array)
         touches = np.where(distance_to_level < threshold)
 
-        if len(touches[0]) >= 5:
+        if len(touches[0]) >= touches_count:
             #index = np.where(p_smooth == in_array[i])[0]
             #plt.hlines(val_max[i], t[index], t.max(), color = 'b', alpha = 0.2)
             #levels.append([len(touches[0]), in_array[i]])
@@ -105,9 +105,7 @@ def plot_create(x, y, quotation, levels, cluster_numbers, threshold, diff_percen
 
   return fig
 
-def resistance_search(quotation):
-    savgol_filter_param = 50
-
+def resistance_search(quotation, th, savgol_filter_param, poly, touches):
     df_path = 'market_history/' + quotation + '.csv'
     df_raw = pd.read_csv(df_path)
 
@@ -123,26 +121,25 @@ def resistance_search(quotation):
     # gpouping data to tameframe
     minutly_price = grouping_by_time(df)
 
-    new_prices = minutly_price[1000:-1000]
+    new_prices = minutly_price[:]
 
     # from dataframe to numpy array
     p = np.array(new_prices['High'])
     t = np.array(new_prices.index)
 
     # smoothing
-    p_smooth = savgol_filter(p, savgol_filter_param, 3)
+    p_smooth = savgol_filter(p, savgol_filter_param, poly)
 
     # searching local extremes
     val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
 
     # set the threshold and percent difference
-    th = 0.1
     diff_percent = (np.max(p) - np.min(p))/np.max(p)
 
     threshold = diff_percent * th * np.min(p_smooth)
 
     # level touch count for max
-    level_prices = touch_count(val_max, threshold)
+    level_prices = touch_count(val_max, threshold, touches)
 
     resistance_levels = []
     cluster_numbers = 0
@@ -171,5 +168,6 @@ def resistance_search(quotation):
             resistance_levels.append(max(level_prices))
 
     # plot create
-    return plot_create(t, p, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
+    fig = plot_create(t, p, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
+    fig.savefig('images/' + quotation + '.png')
 
