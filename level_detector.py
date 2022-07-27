@@ -103,7 +103,7 @@ def plot_create(x, y, quotation, levels, cluster_numbers, threshold, diff_percen
 
   ax.text(x.min(), y.min(), tx, size = 13)
 
-  return fig
+  return plt
 
 def resistance_search(quotation, th, savgol_filter_param, poly, touches):
     df_path = 'market_history/' + quotation + '.csv'
@@ -150,7 +150,7 @@ def resistance_search(quotation, th, savgol_filter_param, poly, touches):
             cluster_numbers = silhouette_coefficient(level_prices)
 
             # one-cluster detection (if clusters > 2 -> cluster only one)    
-            if cluster_numbers <= 2:
+            if cluster_numbers <= 3:
                 level_prices_reshape = np.reshape(level_prices, (-1, 1))
 
                 kmeans = KMeans(n_clusters = cluster_numbers)
@@ -164,7 +164,7 @@ def resistance_search(quotation, th, savgol_filter_param, poly, touches):
                     resistance_levels.append(level_prices[max_index])
             else:
                 resistance_levels.append(max(level_prices))
-        else:
+        else: 
             resistance_levels.append(max(level_prices))
 
     # plot create
