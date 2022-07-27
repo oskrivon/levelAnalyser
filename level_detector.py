@@ -5,28 +5,8 @@ from scipy.signal import savgol_filter
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
+import df_common as dfc
 
-def dataframe_create(df, **kwargs):
-    for i in kwargs.items():
-        if i[0] == 'drop':
-            df_total = df.drop(i[1], axis=1)
-        elif i[0] == 'timestamp':
-            df_total['timestamp'] = pd.to_datetime(df_total['timestamp'], unit=i[1])
-    return df_total
-
-def grouping_by_time(df, frequency = 'min', round = 5):
-    grouped_price = df.groupby([pd.Grouper(
-    key='timestamp', freq=frequency)]).agg(
-        Open = ('price', 'first'),
-        High = ('price', 'max'),
-        Low = ('price', 'min'),
-        Close = ('price', 'last'),
-        Volume = ('size', 'sum'), ).round(round)
-
-    # clearing nan-values
-    grouped_price = grouped_price.fillna(method="ffill")
-    grouped_price = grouped_price.fillna(method="bfill")
-    return grouped_price
 
 def extremes_search(in_array):
     val_max, val_min, indexes_max, indexes_min = [], [], [], []
@@ -110,16 +90,16 @@ def resistance_search(quotation, th, savgol_filter_param, poly, touches):
     df_raw = pd.read_csv(df_path)
 
     # open datasets and create dataframe
-    df = dataframe_create(df=df_raw,
-                            drop=['symbol', 'tickDirection', 'trdMatchID', 
-                                'side', 'grossValue', 'homeNotional', 
-                                'foreignNotional'
-                                ],
-                            timestamp = 's'
-                            )
+    df = dfc.dataframe_create(df=df_raw,
+                              drop=['symbol', 'tickDirection', 'trdMatchID', 
+                                    'side', 'grossValue', 'homeNotional', 
+                                     'foreignNotional'
+                                     ],
+                              timestamp = 's'
+                              )
 
     # gpouping data to tameframe
-    minutly_price = grouping_by_time(df)
+    minutly_price = dfc.grouping_by_time(df)
 
     new_prices = minutly_price[:]
 
