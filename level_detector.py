@@ -21,6 +21,8 @@ def extremes_search(in_array):
             if in_array[i] < in_array[i+1]:
                 val_min.append(in_array[i])
                 indexes_min.append(i)
+    
+    val_max.append(in_array[-1])
     return val_max, val_min, indexes_max, indexes_min
 
 def touch_count(in_array, threshold, touches_count):
@@ -61,11 +63,12 @@ def silhouette_coefficient(data):
     index_of_max = scores.index(max(scores))
     return coefficient[index_of_max]
 
-def plot_create(x, y, quotation, levels, cluster_numbers, threshold, diff_percent):
+def plot_create(x, y, y_smooth, quotation, levels, cluster_numbers, threshold, diff_percent):
   fig, ax = plt.subplots(figsize=(16, 8))
   plt.title(label=quotation)
   ax.grid()
   ax.plot(x, y)
+  ax.plot(x, y_smooth)
 
   levels_txt = ""
   if len(levels) == 0:
@@ -148,6 +151,62 @@ def resistance_search(quotation, th, savgol_filter_param, poly, touches):
             resistance_levels.append(max(level_prices))
 
     # plot create
-    fig = plot_create(t, p, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
+    fig = plot_create(t, p, p_smooth, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
     fig.savefig('images/' + quotation + '.png')
 
+def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches):
+    df_path = 'market_history/' + quotation + '.csv'
+    df_raw = pd.read_csv(df_path)
+
+    # open datasets and create dataframe
+    df = dfc.dataframe_create(df=df_raw,
+                              drop=['symbol', 'tickDirection', 'trdMatchID', 
+                                    'side', 'grossValue', 'homeNotional', 
+                                     'foreignNotional'
+                                     ],
+                              timestamp = 's'
+                              )
+
+    # gpouping data to tameframe
+    minutly_price = dfc.grouping_by_time(df)
+
+    new_prices = minutly_price[:]
+
+    # from dataframe to numpy array
+    p = np.array(new_prices['High'])
+    t = np.array(new_prices.index)
+
+    # smoothing
+    p_smooth = savgol_filter(p, savgol_filter_param, poly)
+
+    # searching local extremes
+    val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
+    sorted = np.sort(val_max)[::-1]
+
+    # set the threshold and percent difference
+    diff_percent = (np.max(p) - np.min(p))/np.max(p)
+
+    threshold = diff_percent * th * np.min(p_smooth)
+
+    # downhill algorithm
+    time = t[0]
+    current_extremum = 0
+
+    times_array = []
+    resistance_levels = []
+
+    for val in sorted:
+        index = np.where(val == p_smooth)[0][0]
+        if t[index] > time:            
+            if abs(val - current_extremum) > threshold:
+                times_array.append(t[index])
+                resistance_levels.append(val)
+
+                time = t[index]
+                current_extremum = val
+
+    # gag
+    cluster_numbers = 99
+
+    fig = plot_create(t, p, p_smooth, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
+    fig.savefig('images/' + quotation + '.png')

@@ -18,29 +18,42 @@ def get_np_from_df(quotation):
                               )
 
     minutly_price = dfc.grouping_by_time(df_raw)
-    new_prices = minutly_price[(minutly_price.index > '2022-07-23 00:10:00') &
-                               (minutly_price.index < '2022-07-25 23:00:00')]
+    new_prices = minutly_price[(minutly_price.index > '2022-07-27 00:10:00') &
+                               (minutly_price.index < '2022-07-29 23:00:00')]
     
     return np.array(new_prices['High'])
 
 btc = get_np_from_df('BTCUSDT')
 
-dirname = 'market_history/'
-files = os.listdir(dirname)
+def correlation_to_file():
+    #btc = get_np_from_df('BTCUSDT')
 
-correlation_file = open('correlation.txt', 'w')
-correlation_array = np.array([])
+    dirname = 'market_history/'
+    files = os.listdir(dirname)
 
-for file in files:
-    quotation = file.split('.')[0]
+    correlation_file = open('correlation.txt', 'w')
+    correlation_array = np.array([])
 
-    print(file)
+    for file in files:
+        quotation = file.split('.')[0]
+
+        print(file)
+        coin = get_np_from_df(quotation)
+        try:
+            correlation = np.corrcoef(btc, coin)[0,1]
+            correlation_file.write(quotation + ':' + str(correlation) + '\n')
+            correlation_array = np.append(correlation_array, correlation)
+        except ValueError:        
+            correlation_file.write(quotation + ':' + 'ValueError' + str(len(btc)) + ' vs ' + str(len(coin)) + '\n')
+
+    correlation_file.close()
+
+def corellation_quotation(quotation):
     coin = get_np_from_df(quotation)
+
     try:
         correlation = np.corrcoef(btc, coin)[0,1]
-        correlation_file.write(quotation + ':' + str(correlation) + '\n')
-        correlation_array = np.append(correlation_array, correlation)
+        #correlation_array = np.append(correlation_array, correlation)
+        return correlation
     except ValueError:        
-        correlation_file.write(quotation + ':' + 'ValueError' + str(len(btc)) + ' vs ' + str(len(coin)) + '\n')
-
-correlation_file.close()
+        return 1
