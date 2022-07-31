@@ -23,6 +23,8 @@ def extremes_search(in_array):
                 indexes_min.append(i)
     
     val_max.append(in_array[-1])
+    val_min.append(in_array[0])
+
     return val_max, val_min, indexes_max, indexes_min
 
 def touch_count(in_array, threshold, touches_count):
@@ -63,30 +65,40 @@ def silhouette_coefficient(data):
     index_of_max = scores.index(max(scores))
     return coefficient[index_of_max]
 
-def plot_create(x, y, y_smooth, quotation, levels, cluster_numbers, threshold, diff_percent):
-  fig, ax = plt.subplots(figsize=(16, 8))
-  plt.title(label=quotation)
-  ax.grid()
-  ax.plot(x, y)
-  ax.plot(x, y_smooth)
+def plot_create(x, y, y_smooth, quotation, resistance, support, 
+                cluster_numbers, threshold, diff_percent):
+    fig, ax = plt.subplots(figsize=(16, 8))
+    plt.title(label=quotation)
+    ax.grid()
+    ax.plot(x, y)
+    ax.plot(x, y_smooth)
 
-  levels_txt = ""
-  if len(levels) == 0:
-    levels_txt = "levels not found"
-  else:
-    for i in levels:
-      ax.hlines(i, x.min(), x.max(), color = 'r', alpha = 0.5)
-      levels_txt = levels_txt + " " + str(i.round(2))
+    levels_resistances_txt = ""
+    if len(resistance) == 0:
+        levels_resistances_txt = "resistances not found"
+    else:
+        for i in resistance:
+            ax.hlines(i, x.min(), x.max(), color = 'r', alpha = 1)
+            levels_resistances_txt = levels_resistances_txt + " " + str(i.round(2))
 
-  tx = ("level = " + levels_txt + '\n' + 
-        "cluster count = " + str(cluster_numbers) + '\n' + 
-        "threshold = " + str(threshold.round(5)) + '\n' + 
-        "diff_percent = " + str(diff_percent.round(5)) + "%"
+    levels_supports_txt = ""
+    if len(support) == 0:
+        levels_supports_txt = "supports not found"
+    else:
+        for i in support:
+            ax.hlines(i, x.min(), x.max(), color = 'g', alpha = 1)
+            levels_supports_txt = levels_supports_txt + " " + str(i.round(2))
+
+    tx = ("resistances: " + levels_resistances_txt + '\n' + 
+          "supports: " + levels_supports_txt + '\n' + 
+          "cluster count = " + str(cluster_numbers) + '\n' + 
+          "threshold = " + str(threshold.round(5)) + '\n' + 
+          "diff_percent = " + str(diff_percent.round(5)) + "%"
     )
 
-  ax.text(x.min(), y.min(), tx, size = 13)
+    ax.text(x.min(), y.min(), tx, size = 13)
 
-  return plt
+    return plt
 
 def resistance_search(quotation, th, savgol_filter_param, poly, touches):
     df_path = 'market_history/' + quotation + '.csv'
@@ -182,6 +194,7 @@ def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches
     # searching local extremes
     val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
     sorted = np.sort(val_max)[::-1]
+    sorted_mins = np.sort(val_min)
 
     # set the threshold and percent difference
     diff_percent = (np.max(p) - np.min(p))/np.max(p)
@@ -191,9 +204,13 @@ def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches
     # downhill algorithm
     time = t[0]
     current_extremum = 0
+    current_extremum_min = 0
 
     times_array = []
+    time_array_min = []
+
     resistance_levels = []
+    support_levels = []
 
     for val in sorted:
         index = np.where(val == p_smooth)[0][0]
@@ -205,8 +222,20 @@ def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches
                 time = t[index]
                 current_extremum = val
 
+    time = t[0]
+
+    for val in sorted_mins:
+        index = np.where(val == p_smooth)[0][0]
+        if t[index] > time:
+            if abs(val - current_extremum_min) > threshold:
+                time_array_min.append(t[index])
+                support_levels.append(val)
+
+                time = t[index]
+                current_extremum_min = val
+
     # gag
     cluster_numbers = 99
 
-    fig = plot_create(t, p, p_smooth, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
+    fig = plot_create(t, p, p_smooth, quotation, resistance_levels, support_levels, cluster_numbers, threshold, diff_percent)
     fig.savefig('images/' + quotation + '.png')

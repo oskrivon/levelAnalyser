@@ -55,5 +55,5 @@ def corellation_quotation(quotation):
         correlation = np.corrcoef(btc, coin)[0,1]
         #correlation_array = np.append(correlation_array, correlation)
         return correlation
-    except ValueError:        
+    except ValueError:
         return 1
