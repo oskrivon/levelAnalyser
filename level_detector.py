@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import savgol_filter
 from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
 from sklearn.metrics import silhouette_score
 
 import df_common as dfc
@@ -100,7 +101,7 @@ def plot_create(x, y, y_smooth, quotation, resistance, support,
 
     return plt
 
-def resistance_search(quotation, th, savgol_filter_param, poly, touches):
+def data_preparation(quotation):
     df_path = 'market_history/' + quotation + '.csv'
     df_raw = pd.read_csv(df_path)
 
@@ -115,12 +116,86 @@ def resistance_search(quotation, th, savgol_filter_param, poly, touches):
 
     # gpouping data to tameframe
     minutly_price = dfc.grouping_by_time(df)
+    return minutly_price
 
-    new_prices = minutly_price[:]
+def downhill_algorithm(t, p, val_max, val_min):
+    sorted_max = np.sort(val_max)[::-1]
+    sorted_min = np.sort(val_min)
+
+    # downhill algorithm
+    time = t[0]
+    current_max = 0
+    current_min = 0
+
+    times_max = []
+    times_min = []
+
+    resistance_levels = []
+    support_levels = []
+
+    for val in sorted_max:
+        index = np.where(val == p)[0][0]
+        if t[index] > time:            
+            times_max.append(t[index])
+            resistance_levels.append(val)
+
+            time = t[index]
+            current_max = val
+
+    time = t[0]
+
+    for val in sorted_min:
+        index = np.where(val == p)[0][0]
+        if t[index] > time:
+            times_min.append(t[index])
+            support_levels.append(val)
+
+            time = t[index]
+            current_min = val
+    
+    return resistance_levels, support_levels
+
+def DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples):
+    X = np.reshape(support_levels, (-1,1))
+    db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
+
+    labels = db.labels_
+    labels_set = set(labels)
+    labels_set.discard(-1)
+    clusters_num = len(labels_set)
+
+    support_levels_np = np.array(support_levels)
+
+    supports_array = []
+
+    for label in labels_set:
+        indexes = np.where(labels == label)
+        supports_array.append(min(support_levels_np[indexes]))
+
+    X = np.reshape(resistance_levels, (-1,1))
+    db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
+
+    labels = db.labels_
+    labels_set = set(labels)
+    labels_set.discard(-1)
+    clusters_num = clusters_num + len(labels_set)
+
+    resistance_levels_np = np.array(resistance_levels)
+
+    resistance_array = []
+
+    for label in labels_set:
+        indexes = np.where(labels == label)
+        resistance_array.append(max(resistance_levels_np[indexes]))
+
+    return resistance_array, supports_array, clusters_num
+
+def resistance_search(quotation, th, savgol_filter_param, poly, touches):
+    minutly_price = data_preparation(quotation)
 
     # from dataframe to numpy array
-    p = np.array(new_prices['High'])
-    t = np.array(new_prices.index)
+    p = np.array(minutly_price['High'])
+    t = np.array(minutly_price.index)
 
     # smoothing
     p_smooth = savgol_filter(p, savgol_filter_param, poly)
@@ -167,34 +242,17 @@ def resistance_search(quotation, th, savgol_filter_param, poly, touches):
     fig.savefig('images/' + quotation + '.png')
 
 def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches):
-    df_path = 'market_history/' + quotation + '.csv'
-    df_raw = pd.read_csv(df_path)
-
-    # open datasets and create dataframe
-    df = dfc.dataframe_create(df=df_raw,
-                              drop=['symbol', 'tickDirection', 'trdMatchID', 
-                                    'side', 'grossValue', 'homeNotional', 
-                                     'foreignNotional'
-                                     ],
-                              timestamp = 's'
-                              )
-
-    # gpouping data to tameframe
-    minutly_price = dfc.grouping_by_time(df)
-
-    new_prices = minutly_price[:]
+    minutly_price = data_preparation(quotation)
 
     # from dataframe to numpy array
-    p = np.array(new_prices['High'])
-    t = np.array(new_prices.index)
+    p = np.array(minutly_price['High'])
+    t = np.array(minutly_price.index)
 
     # smoothing
     p_smooth = savgol_filter(p, savgol_filter_param, poly)
 
     # searching local extremes
     val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
-    sorted = np.sort(val_max)[::-1]
-    sorted_mins = np.sort(val_min)
 
     # set the threshold and percent difference
     diff_percent = (np.max(p) - np.min(p))/np.max(p)
@@ -202,40 +260,40 @@ def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches
     threshold = diff_percent * th * np.min(p_smooth)
 
     # downhill algorithm
-    time = t[0]
-    current_extremum = 0
-    current_extremum_min = 0
-
-    times_array = []
-    time_array_min = []
-
-    resistance_levels = []
-    support_levels = []
-
-    for val in sorted:
-        index = np.where(val == p_smooth)[0][0]
-        if t[index] > time:            
-            if abs(val - current_extremum) > threshold:
-                times_array.append(t[index])
-                resistance_levels.append(val)
-
-                time = t[index]
-                current_extremum = val
-
-    time = t[0]
-
-    for val in sorted_mins:
-        index = np.where(val == p_smooth)[0][0]
-        if t[index] > time:
-            if abs(val - current_extremum_min) > threshold:
-                time_array_min.append(t[index])
-                support_levels.append(val)
-
-                time = t[index]
-                current_extremum_min = val
+    resistance_levels, support_levels = downhill_algorithm(t, p_smooth, val_max, val_min, threshold)
 
     # gag
     cluster_numbers = 99
 
     fig = plot_create(t, p, p_smooth, quotation, resistance_levels, support_levels, cluster_numbers, threshold, diff_percent)
     fig.savefig('images/' + quotation + '.png')
+
+    return resistance_levels, support_levels
+
+def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, poly, min_samples):
+    minutly_price = data_preparation(quotation)
+
+    # from dataframe to numpy array
+    p = np.array(minutly_price['High'])
+    t = np.array(minutly_price.index)
+
+    # smoothing
+    p_smooth = savgol_filter(p, savgol_filter_param, poly)
+
+    # searching local extremes
+    val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
+
+    # set the threshold and percent difference
+    diff_percent = (np.max(p) - np.min(p))/np.max(p)
+
+    eps = th * (np.max(p) - np.min(p))
+
+    # downhill algorithm
+    resistance_levels, support_levels = downhill_algorithm(t, p_smooth, val_max, val_min)
+
+    resistance_levels_db, support_levels_db, cluster_numbers = DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples)
+
+    fig = plot_create(t, p, p_smooth, quotation, resistance_levels_db, support_levels_db, cluster_numbers, eps, diff_percent)
+    fig.savefig('images/' + quotation + '.png')
+
+    return resistance_levels, support_levels
