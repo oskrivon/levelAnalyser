@@ -28,16 +28,26 @@ def get_market_history(quotations = [], period = 3):
 
     quotation_list.sort()
 
+    # create the dates list
+    now = datetime.datetime.now()
+
+    dates = []
+    for d in range(period, 0, -1):
+        period_ = datetime.timedelta(days=d)
+        data = (now - period_).strftime("%Y-%m-%d")
+        dates.append(data)
+
     # create the urls list
     url_list = []
 
-    for i in quotation_list:
+    for q in quotation_list:
         urls = []
-        for j in range(period, 0, -1):
-            url = ('https://public.bybit.com/trading/' + i + '/' + i + str(now.year) + '-0' + 
-            str(now.month) + '-' + str(now.day - j) + '.csv.gz'
-            )
+        for d in dates:
+            url = ('https://public.bybit.com/trading/' + q + '/' + 
+                   q + d + '.csv.gz'
+                  )
             urls.append(url)
+
         url_list.append(urls)
 
     # market data download
@@ -47,6 +57,7 @@ def get_market_history(quotations = [], period = 3):
             try:
                 df_ = pd.read_csv(j)
             except HTTPError:
+                print(HTTPError)
                 continue
 
             df.append(df_)
