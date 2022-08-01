@@ -124,8 +124,6 @@ def downhill_algorithm(t, p, val_max, val_min):
 
     # downhill algorithm
     time = t[0]
-    current_max = 0
-    current_min = 0
 
     times_max = []
     times_min = []
@@ -140,7 +138,6 @@ def downhill_algorithm(t, p, val_max, val_min):
             resistance_levels.append(val)
 
             time = t[index]
-            current_max = val
 
     time = t[0]
 
@@ -151,42 +148,32 @@ def downhill_algorithm(t, p, val_max, val_min):
             support_levels.append(val)
 
             time = t[index]
-            current_min = val
     
     return resistance_levels, support_levels
 
 def DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples):
-    X = np.reshape(support_levels, (-1,1))
-    db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
+    def level_clusters(levels, func):
+        X = np.reshape(levels, (-1,1))
+        db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
 
-    labels = db.labels_
-    labels_set = set(labels)
-    labels_set.discard(-1)
-    clusters_num = len(labels_set)
+        labels = db.labels_
+        labels_set = set(labels)
+        labels_set.discard(-1)
+        clusters_num = len(labels_set)
 
-    support_levels_np = np.array(support_levels)
+        levels_np = np.array(levels)
 
-    supports_array = []
+        levels_array = []
 
-    for label in labels_set:
-        indexes = np.where(labels == label)
-        supports_array.append(min(support_levels_np[indexes]))
+        for label in labels_set:
+            indexes = np.where(labels == label)
+            levels_array.append(func(levels_np[indexes]))
+        
+        return levels_array, clusters_num
 
-    X = np.reshape(resistance_levels, (-1,1))
-    db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
-
-    labels = db.labels_
-    labels_set = set(labels)
-    labels_set.discard(-1)
-    clusters_num = clusters_num + len(labels_set)
-
-    resistance_levels_np = np.array(resistance_levels)
-
-    resistance_array = []
-
-    for label in labels_set:
-        indexes = np.where(labels == label)
-        resistance_array.append(max(resistance_levels_np[indexes]))
+    resistance_array, clusters_resistance = level_clusters(resistance_levels, max)
+    supports_array, clusters_supports = level_clusters(support_levels, min)
+    clusters_num = clusters_resistance + clusters_supports
 
     return resistance_array, supports_array, clusters_num
 
@@ -281,7 +268,7 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
     p_smooth = savgol_filter(p, savgol_filter_param, poly)
 
     # searching local extremes
-    val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
+    val_max, val_min, _, _ = extremes_search(p_smooth)
 
     # set the threshold and percent difference
     diff_percent = (np.max(p) - np.min(p))/np.max(p)
