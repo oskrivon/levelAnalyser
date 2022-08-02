@@ -4,6 +4,21 @@ import numpy as np
 
 import df_common as dfc
 
+df_raw = pd.read_csv('market_history/BTCUSDT.csv')
+
+
+df_raw = dfc.dataframe_create(df=df_raw,
+                            drop=['symbol', 'tickDirection', 'trdMatchID', 
+                                'side', 'grossValue', 'homeNotional', 
+                                    'foreignNotional'
+                                    ],
+                            timestamp = 's'
+                            )
+
+minutly_price = dfc.grouping_by_time(df_raw)
+
+begin = str(minutly_price.index[100])
+end = str(minutly_price.index[-100])
 
 def get_np_from_df(quotation):
     path = 'market_history/'
@@ -18,16 +33,15 @@ def get_np_from_df(quotation):
                               )
 
     minutly_price = dfc.grouping_by_time(df_raw)
-    new_prices = minutly_price[(minutly_price.index > '2022-07-27 00:10:00') &
-                               (minutly_price.index < '2022-07-29 23:00:00')]
+
+    new_prices = minutly_price[(minutly_price.index > begin) &
+                               (minutly_price.index < end)]
     
     return np.array(new_prices['High'])
 
 btc = get_np_from_df('BTCUSDT')
 
 def correlation_to_file():
-    #btc = get_np_from_df('BTCUSDT')
-
     dirname = 'market_history/'
     files = os.listdir(dirname)
 

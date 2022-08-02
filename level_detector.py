@@ -1,5 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import style
+import mplfinance as mpf
 import numpy as np
 from scipy.signal import savgol_filter
 from sklearn.cluster import KMeans
@@ -95,11 +97,55 @@ def plot_create(x, y, y_smooth, quotation, resistance, support,
           "cluster count = " + str(cluster_numbers) + '\n' + 
           "threshold = " + str(threshold.round(5)) + '\n' + 
           "diff_percent = " + str(diff_percent.round(5)) + "%"
-    )
+         )
 
     ax.text(x.min(), y.min(), tx, size = 13)
 
     return plt
+
+def mpf_plot(df, quotation, resistance, support, cluster_numbers,
+             threshold, diff_percent, eps):
+    def levels_text_create(levels):
+        tx = ''
+        if len(levels) == 0:
+            tx = 'resistances not found'
+        else:
+            for lv in levels:
+                tx = tx + ' ' + str(lv.round(4))
+        return tx
+
+    resistance_tx = levels_text_create(resistance)
+    support_tx = levels_text_create(support)
+
+    tx = (quotation + '  ' + str(df.index[0]) + ' - ' + str(df.index[0]) + '\n' +
+          'th = ' + str(threshold) + ' | ' + 
+          'max_diff = ' + str(diff_percent.round(5)) + '%' + ' | ' + 
+          'eps = ' + str(eps.round(5)) + ' | ' + 
+          'cluster numbers = ' + str(cluster_numbers.round(5)) + '\n' + 
+          'resistances: ' + resistance_tx + '\n' + 
+          'supports: ' + support_tx
+         )
+    
+    levels =  resistance + support
+    colors = tuple(['r'] * len(resistance) + ['g'] * len(support))
+
+    hlines_config = dict(hlines=levels, 
+                         colors=colors, 
+                         linewidths=1
+                        )
+    tittle_config = dict(title = tx, y = 1, x = 0.11,
+                         fontsize = 10, fontweight = 10,
+                         ha = 'left')
+    save_config = dict(fname = 'images/' + quotation + '.png',
+                       transparent = False)
+
+    mpf.plot(df, type='line', volume=True, style='yahoo',
+             figratio=(16,8), xrotation=0, figscale=1,
+             hlines=hlines_config,
+             title=tittle_config,
+             savefig=save_config,
+             tight_layout=True
+            )
 
 def data_preparation(quotation):
     df_path = 'market_history/' + quotation + '.csv'
@@ -280,7 +326,10 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
 
     resistance_levels_db, support_levels_db, cluster_numbers = DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples)
 
-    fig = plot_create(t, p, p_smooth, quotation, resistance_levels_db, support_levels_db, cluster_numbers, eps, diff_percent)
-    fig.savefig('images/' + quotation + '.png')
+    #fig = plot_create(t, p, p_smooth, quotation, resistance_levels_db, support_levels_db, cluster_numbers, eps, diff_percent)
+    #fig.savefig('images/' + quotation + '.png')
+
+    mpf_plot(minutly_price, quotation, resistance_levels_db, support_levels_db,
+             cluster_numbers, th, diff_percent, eps)
 
     return resistance_levels, support_levels
