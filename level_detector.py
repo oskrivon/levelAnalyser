@@ -19,14 +19,21 @@ def extremes_search(in_array):
                 val_max.append(in_array[i])
                 indexes_max.append(i)
 
+    if in_array[-1] > in_array[-2]:
+        val_max.append(in_array[-1])
+    if in_array[0] > in_array[1]:
+        val_max.append(in_array[0])
+
     for i in range(0, len(in_array)-1):
         if in_array[i] < in_array[i-1]:
             if in_array[i] < in_array[i+1]:
                 val_min.append(in_array[i])
                 indexes_min.append(i)
     
-    val_max.append(in_array[-1])
-    val_min.append(in_array[0])
+    if in_array[-1] < in_array[-2]:
+        val_min.append(in_array[-1])
+    if in_array[0] < in_array[1]:
+        val_min.append(in_array[0])
 
     return val_max, val_min, indexes_max, indexes_min
 
@@ -104,7 +111,7 @@ def plot_create(x, y, y_smooth, quotation, resistance, support,
     return plt
 
 def mpf_plot(df, quotation, resistance, support, cluster_numbers,
-             threshold, diff_percent, eps):
+             threshold, diff_percent, eps, volume_flag):
     def levels_text_create(levels):
         tx = ''
         if len(levels) == 0:
@@ -117,11 +124,11 @@ def mpf_plot(df, quotation, resistance, support, cluster_numbers,
     resistance_tx = levels_text_create(resistance)
     support_tx = levels_text_create(support)
 
-    tx = (quotation + '  ' + str(df.index[0]) + ' - ' + str(df.index[0]) + '\n' +
+    tx = (quotation + '  ' + str(df.index[0]) + ' - ' + str(df.index[-1]) + '\n' +
           'th = ' + str(threshold) + ' | ' + 
           'max_diff = ' + str(diff_percent.round(5)) + '%' + ' | ' + 
           'eps = ' + str(eps.round(5)) + ' | ' + 
-          'cluster numbers = ' + str(cluster_numbers.round(5)) + '\n' + 
+          'cluster numbers = ' + str(cluster_numbers) + '\n' + 
           'resistances: ' + resistance_tx + '\n' + 
           'supports: ' + support_tx
          )
@@ -139,7 +146,7 @@ def mpf_plot(df, quotation, resistance, support, cluster_numbers,
     save_config = dict(fname = 'images/' + quotation + '.png',
                        transparent = False)
 
-    mpf.plot(df, type='line', volume=True, style='yahoo',
+    mpf.plot(df, type='line', volume=volume_flag, style='yahoo',
              figratio=(16,8), xrotation=0, figscale=1,
              hlines=hlines_config,
              title=tittle_config,
@@ -303,11 +310,11 @@ def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches
 
     return resistance_levels, support_levels
 
-def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, poly, min_samples):
+def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, poly, min_samples, volume_flag):
     minutly_price = data_preparation(quotation)
 
     # from dataframe to numpy array
-    p = np.array(minutly_price['High'])
+    p = np.array(minutly_price['Close'])
     t = np.array(minutly_price.index)
 
     # smoothing
@@ -330,6 +337,6 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
     #fig.savefig('images/' + quotation + '.png')
 
     mpf_plot(minutly_price, quotation, resistance_levels_db, support_levels_db,
-             cluster_numbers, th, diff_percent, eps)
+             cluster_numbers, th, diff_percent, eps, volume_flag)
 
     return resistance_levels, support_levels

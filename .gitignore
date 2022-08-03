@@ -1,6 +1,5 @@
 *.png
 *.csv
-*.ipynb
 images/
 market_history/
 /telegram_key.txt
