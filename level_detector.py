@@ -169,7 +169,11 @@ def data_preparation(quotation):
 
     # gpouping data to tameframe
     minutly_price = dfc.grouping_by_time(df)
-    return minutly_price
+
+    # update
+    minutly_price_update = dfc.latest_data_update(minutly_price, quotation)
+
+    return minutly_price_update
 
 def downhill_algorithm(t, p, val_max, val_min):
     sorted_max = np.sort(val_max)[::-1]
