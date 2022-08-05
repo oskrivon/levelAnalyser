@@ -171,7 +171,7 @@ def data_preparation(quotation):
     minutly_price = dfc.grouping_by_time(df)
 
     # update
-    minutly_price_update = dfc.latest_data_update(minutly_price, quotation)
+    minutly_price_update = dfc.data_update(minutly_price, quotation)
 
     return minutly_price_update
 
@@ -337,10 +337,23 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
 
     resistance_levels_db, support_levels_db, cluster_numbers = DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples)
 
+    resistans_final = []
+    support_final = []
+
+    if len(resistance_levels_db) > 0:
+        for level in resistance_levels_db:
+            res_index = np.where(np.array(level) == p_smooth)[0][0]
+            resistans_final.append(p[res_index])
+
+    if len(resistance_levels_db) > 0:
+        for level in support_levels_db:
+            supp_index = np.where(np.array(level) == p_smooth)[0][0]
+            support_final.append(p[supp_index])
+
     #fig = plot_create(t, p, p_smooth, quotation, resistance_levels_db, support_levels_db, cluster_numbers, eps, diff_percent)
     #fig.savefig('images/' + quotation + '.png')
 
-    mpf_plot(minutly_price, quotation, resistance_levels_db, support_levels_db,
+    mpf_plot(minutly_price, quotation, resistans_final, support_final,
              cluster_numbers, th, diff_percent, eps, volume_flag)
 
     return resistance_levels, support_levels

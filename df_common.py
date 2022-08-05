@@ -1,5 +1,4 @@
 import pandas as pd
-import time
 import datetime
 
 from pybit import usdt_perpetual
@@ -34,7 +33,7 @@ def latest_data_update(df, quotation, interval = 1):
     date_start = last_df_date + datetime.timedelta(hours=3, minutes=1)
 
     start_unix = int(datetime.datetime.timestamp(date_start))
-    end_unix = int(datetime.datetime.timestamp(date_end))
+    now_unix = int(datetime.datetime.timestamp(date_end))
 
     # get last data from bybit
     session_unauth = usdt_perpetual.HTTP(endpoint="https://api.bybit.com")
@@ -63,7 +62,7 @@ def latest_data_update(df, quotation, interval = 1):
                            'low': 'Low', 'close': 'Close', 
                            'volume': 'Volume'}, inplace=True)
 
-        df_new['timestamp'] = pd.to_datetime(df_new['timestamp'], unit='ms')
+        df_new['timestamp'] = pd.to_datetime(df_new['timestamp'], unit='s')
         df_new = df_new.set_index('timestamp')
 
         df_new = df_new[['Open', 'Close', 'High', 'Low', 'Volume']].astype(float)
@@ -77,5 +76,31 @@ def latest_data_update(df, quotation, interval = 1):
     except Exception as e:
         print('from "df_common", for ', quotation, ': ', e)
         df_concat = df
+        raise
 
     return df_concat
+
+def data_update(df, quotation):
+    last_df_date = df.index[-1]
+    date_end = datetime.datetime.utcnow()
+
+    # UTC correction
+    date_start = last_df_date + datetime.timedelta(hours=3, minutes=1)
+
+    start_unix = int(datetime.datetime.timestamp(date_start))
+    now_unix = int(datetime.datetime.timestamp(date_end))
+
+    delta = now_unix - start_unix
+    th = 100
+
+    while delta > th:
+        try:
+            df = latest_data_update(df, quotation)
+
+            start_unix = int(datetime.datetime.timestamp(df.index[-1]))
+            delta = now_unix - start_unix
+        except Exception as e:
+            print('from "df_common", func "data_update" - break')
+            break
+    
+    return df
