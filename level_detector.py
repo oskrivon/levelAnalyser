@@ -189,8 +189,8 @@ def downhill_algorithm(t, p, val_max, val_min):
     support_levels = []
 
     for val in sorted_max:
-        index = np.where(val == p)[0][0]
-        if t[index] > time:            
+        index = np.where(val == p)[0][-1]
+        if t[index] >= time:            
             times_max.append(t[index])
             resistance_levels.append(val)
 
@@ -199,8 +199,8 @@ def downhill_algorithm(t, p, val_max, val_min):
     time = t[0]
 
     for val in sorted_min:
-        index = np.where(val == p)[0][0]
-        if t[index] > time:
+        index = np.where(val == p)[0][-1]
+        if t[index] >= time:
             times_min.append(t[index])
             support_levels.append(val)
 
@@ -285,7 +285,7 @@ def resistance_search(quotation, th, savgol_filter_param, poly, touches):
     fig = plot_create(t, p, p_smooth, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
     fig.savefig('images/' + quotation + '.png')
 
-def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches):
+def resistance_search_downhill(quotation, th, savgol_filter_param, poly, volume_flag):
     minutly_price = data_preparation(quotation)
 
     # from dataframe to numpy array
@@ -296,21 +296,21 @@ def resistance_search_downhill(quotation, th, savgol_filter_param, poly, touches
     p_smooth = savgol_filter(p, savgol_filter_param, poly)
 
     # searching local extremes
-    val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
+    val_max, val_min, indexes_max, indexes_min = extremes_search(p)
 
     # set the threshold and percent difference
     diff_percent = (np.max(p) - np.min(p))/np.max(p)
 
-    threshold = diff_percent * th * np.min(p_smooth)
+    threshold = diff_percent * th * np.min(p)
 
     # downhill algorithm
-    resistance_levels, support_levels = downhill_algorithm(t, p_smooth, val_max, val_min, threshold)
+    resistance_levels, support_levels = downhill_algorithm(t, p, val_max, val_min)
 
     # gag
     cluster_numbers = 99
 
-    fig = plot_create(t, p, p_smooth, quotation, resistance_levels, support_levels, cluster_numbers, threshold, diff_percent)
-    fig.savefig('images/' + quotation + '.png')
+    mpf_plot(minutly_price, quotation, resistance_levels, support_levels,
+             cluster_numbers, th, diff_percent, threshold, volume_flag)
 
     return resistance_levels, support_levels
 
@@ -325,7 +325,7 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
     p_smooth = savgol_filter(p, savgol_filter_param, poly)
 
     # searching local extremes
-    val_max, val_min, _, _ = extremes_search(p_smooth)
+    val_max, val_min, _, _ = extremes_search(p)
 
     # set the threshold and percent difference
     diff_percent = (np.max(p) - np.min(p))/np.max(p)
@@ -333,27 +333,27 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
     eps = th * (np.max(p) - np.min(p))
 
     # downhill algorithm
-    resistance_levels, support_levels = downhill_algorithm(t, p_smooth, val_max, val_min)
+    resistance_levels, support_levels = downhill_algorithm(t, p, val_max, val_min)
 
     resistance_levels_db, support_levels_db, cluster_numbers = DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples)
 
-    resistans_final = []
+    resistance_final = []
     support_final = []
 
     if len(resistance_levels_db) > 0:
         for level in resistance_levels_db:
-            res_index = np.where(np.array(level) == p_smooth)[0][0]
-            resistans_final.append(p[res_index])
+            res_index = np.where(np.array(level) == p)[0][0]
+            resistance_final.append(p[res_index])
 
     if len(resistance_levels_db) > 0:
         for level in support_levels_db:
-            supp_index = np.where(np.array(level) == p_smooth)[0][0]
+            supp_index = np.where(np.array(level) == p)[0][0]
             support_final.append(p[supp_index])
 
     #fig = plot_create(t, p, p_smooth, quotation, resistance_levels_db, support_levels_db, cluster_numbers, eps, diff_percent)
     #fig.savefig('images/' + quotation + '.png')
 
-    mpf_plot(minutly_price, quotation, resistans_final, support_final,
+    mpf_plot(minutly_price, quotation, resistance_final, support_final,
              cluster_numbers, th, diff_percent, eps, volume_flag)
 
-    return resistance_levels, support_levels
+    return resistance_final, support_final
