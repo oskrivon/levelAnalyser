@@ -423,3 +423,5 @@ def improvise_algorithm(quotation, th, volume_flag):
 
     mpf_plot(data, quotation, level_touches_res, level_touches_sup,
              cluster_numbers, th, diff_percent, eps, volume_flag)
+
+    return level_touches_res, level_touches_sup

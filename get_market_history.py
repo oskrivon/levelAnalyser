@@ -12,7 +12,7 @@ def get_market_history(quotations = [], period = 3):
     if len(quotations) == 0:
         # get the quotations from bybit
         session_unauth = inverse_perpetual.HTTP(
-            endpoint="https://api-testnet.bybit.com"
+            endpoint="https://api.bybit.com"
         )
         quotations_ = session_unauth.query_symbol()
 
