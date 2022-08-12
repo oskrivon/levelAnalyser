@@ -14,8 +14,8 @@ import df_common as dfc
 def extremes_search(in_array):
     val_max, val_min, indexes_max, indexes_min = [], [], [], []
     for i in range(1, len(in_array)-1):
-        if in_array[i] > in_array[i-1]:
-            if in_array[i] > in_array[i+1]:
+        if in_array[i] >= in_array[i-1]:
+            if in_array[i] >= in_array[i+1]:
                 val_max.append(in_array[i])
                 indexes_max.append(i)
 
@@ -25,8 +25,8 @@ def extremes_search(in_array):
         val_max.append(in_array[0])
 
     for i in range(0, len(in_array)-1):
-        if in_array[i] < in_array[i-1]:
-            if in_array[i] < in_array[i+1]:
+        if in_array[i] <= in_array[i-1]:
+            if in_array[i] <= in_array[i+1]:
                 val_min.append(in_array[i])
                 indexes_min.append(i)
     
@@ -366,12 +366,12 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
 
     return resistance_final, support_final
 
-def downhill_and_touch_counter(quotation, th, poly, min_samples, volume_flag):
-    minutly_price = data_preparation(quotation)
+def improvise_algorithm(quotation, th, volume_flag):
+    data = data_preparation(quotation, '30m')
 
     # from dataframe to numpy array
-    p = np.array(minutly_price['Close'])
-    t = np.array(minutly_price.index)
+    p = np.array(data['Close'])
+    t = np.array(data.index)
 
     # searching local extremes
     val_max, val_min, _, _ = extremes_search(p)
@@ -380,22 +380,46 @@ def downhill_and_touch_counter(quotation, th, poly, min_samples, volume_flag):
     resistance_levels, support_levels = downhill_algorithm(t, p, val_max, val_min)
 
     # set the threshold and percent difference
-    diff_percent = (np.max(p) - np.min(p))/np.max(p)
-
     eps = th * (np.max(p) - np.min(p))
-
+    diff_percent = eps
     cluster_numbers = 0
+    #########################################
 
-    level_touches = []
+    # search in maximums
+    level_touches_res = []
+    resistance_levels = sorted(resistance_levels, reverse=True)
 
     for level in resistance_levels:
-        touches = 0
-        for price in resistance_levels:
-            if level - price > diff_percent:
-                touches = touches + 1
-                resistance_levels.remove(price)
-        if touches > 2:
-            level_touches.append(level)
+        if len(level_touches_res) == 0:
+            level_touches_res.append(level)
+        else:
+            diff = level_touches_res[-1] - level
+            if diff >= eps:
+                level_touches_res.append(level)
 
-    mpf_plot(minutly_price, quotation, level_touches, support_levels,
+    for level in level_touches_res:
+        count = 0
+        for level_ in resistance_levels:
+            diff = abs(level - level_)
+            if diff <= eps: count +=1
+
+    # search in minimums
+    level_touches_sup = []
+    support_levels = sorted(support_levels)
+
+    for level in support_levels:
+        if len(level_touches_sup) == 0:
+            level_touches_sup.append(level)
+        else:
+            diff = level - level_touches_sup[-1]
+            if diff >= eps:
+                level_touches_sup.append(level)
+
+    for level in level_touches_sup:
+        count = 0
+        for level_ in support_levels:
+            diff = abs(level - level_)
+            if diff <= eps: count +=1
+
+    mpf_plot(data, quotation, level_touches_res, level_touches_sup,
              cluster_numbers, th, diff_percent, eps, volume_flag)
