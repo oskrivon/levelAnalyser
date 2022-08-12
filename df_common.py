@@ -11,7 +11,7 @@ def dataframe_create(df, **kwargs):
             df_total['timestamp'] = pd.to_datetime(df_total['timestamp'], unit=i[1])
     return df_total
 
-def grouping_by_time(df, frequency = 'min', round = 5):
+def grouping_by_time(df, frequency = '1m', round = 5):
     grouped_price = df.groupby([pd.Grouper(
     key='timestamp', freq=frequency)]).agg(
         Open = ('price', 'first'),
@@ -80,7 +80,7 @@ def latest_data_update(df, quotation, interval = 1):
 
     return df_concat
 
-def data_update(df, quotation):
+def data_update(df, quotation, interval):
     last_df_date = df.index[-1]
     date_end = datetime.datetime.utcnow()
 
@@ -95,7 +95,7 @@ def data_update(df, quotation):
 
     while delta > th:
         try:
-            df = latest_data_update(df, quotation)
+            df = latest_data_update(df, quotation, interval)
 
             start_unix = int(datetime.datetime.timestamp(df.index[-1]))
             delta = now_unix - start_unix
