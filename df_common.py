@@ -74,7 +74,7 @@ def latest_data_update(df, quotation, interval = 1):
         df_concat = pd.concat([df, df_new])
         
     except Exception as e:
-        print('from "df_common", for ', quotation, ': ', e)
+        #print('from "df_common", for ', quotation, ': ', e)
         df_concat = df
         raise
 
@@ -100,7 +100,7 @@ def data_update(df, quotation, interval):
             start_unix = int(datetime.datetime.timestamp(df.index[-1]))
             delta = now_unix - start_unix
         except Exception as e:
-            print('from "df_common", func "data_update" - break')
+            #print('from "df_common", func "data_update" - break')
             break
     
     return df

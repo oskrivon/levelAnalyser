@@ -19,10 +19,10 @@ def extremes_search(in_array):
                 val_max.append(in_array[i])
                 indexes_max.append(i)
 
-    if in_array[-1] > in_array[-2]:
-        val_max.append(in_array[-1])
-    if in_array[0] > in_array[1]:
-        val_max.append(in_array[0])
+    #if in_array[-1] > in_array[-2]:
+    #    val_max.append(in_array[-1])
+    #if in_array[0] > in_array[1]:
+    #    val_max.append(in_array[0])
 
     for i in range(0, len(in_array)-1):
         if in_array[i] <= in_array[i-1]:
@@ -30,10 +30,10 @@ def extremes_search(in_array):
                 val_min.append(in_array[i])
                 indexes_min.append(i)
     
-    if in_array[-1] < in_array[-2]:
-        val_min.append(in_array[-1])
-    if in_array[0] < in_array[1]:
-        val_min.append(in_array[0])
+    #if in_array[-1] < in_array[-2]:
+    #    val_min.append(in_array[-1])
+    #if in_array[0] < in_array[1]:
+    #    val_min.append(in_array[0])
 
     return val_max, val_min, indexes_max, indexes_min
 
@@ -366,8 +366,8 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
 
     return resistance_final, support_final
 
-def improvise_algorithm(quotation, th, volume_flag):
-    data = data_preparation(quotation, '30m')
+def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
+    data = data_preparation(quotation, '5m')
 
     # from dataframe to numpy array
     p = np.array(data['Close'])
@@ -421,7 +421,8 @@ def improvise_algorithm(quotation, th, volume_flag):
             diff = abs(level - level_)
             if diff <= eps: count +=1
 
-    mpf_plot(data, quotation, level_touches_res, level_touches_sup,
-             cluster_numbers, th, diff_percent, eps, volume_flag)
+    if log_flag:
+        mpf_plot(data, quotation, level_touches_res, level_touches_sup,
+                cluster_numbers, th, diff_percent, eps, volume_flag)
 
     return level_touches_res, level_touches_sup
