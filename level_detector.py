@@ -367,7 +367,7 @@ def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, po
     return resistance_final, support_final
 
 def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
-    data = data_preparation(quotation, '5m')
+    data = data_preparation(quotation, '15m')
 
     # from dataframe to numpy array
     p = np.array(data['Close'])

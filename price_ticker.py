@@ -1,11 +1,15 @@
 import os
 import numpy as np
 import datetime
+import time
 
 from pybit import spot
 from pybit import inverse_perpetual
 
 import level_detector as ld
+import telegram_posting as bot
+
+TOKEN = open('telegram_key.txt', 'r').read()
 
 
 def price_checker(session, quotations):
@@ -39,7 +43,7 @@ for s in files:
     quotation = s.split('.')[0]
 
     # get current levels from analyser
-    res, supp = ld.improvise_algorithm(quotation, 0.1, False, False)
+    res, supp = ld.improvise_algorithm(quotation, 0.1, False, True)
     res_np = np.array(res)
     supp_np = np.array(supp)
     
@@ -48,42 +52,97 @@ for s in files:
     data = session_unauth.latest_information_for_symbol(symbol=quotation)
     current_price = float(data['result'][0]['last_price'])
 
-    resistance_distance = abs(res_np - current_price)/current_price * 100
-    support_dictance = abs(supp_np - current_price)/current_price * 100
+    min_resistance_distance = abs(res_np[-1] - current_price) / current_price * 100
+    min_support_dictance = abs(supp_np[0] - current_price) / current_price * 100
 
-    min_resistance_distance = np.min(resistance_distance)
-    min_support_dictance = np.min(support_dictance)
+    print(min_resistance_distance, min_support_dictance)
 
-    r = min_resistance_distance.round(4)
-    s = min_support_dictance.round(4)
+    stop = 0.001
 
-    date = datetime.datetime.utcnow()
+    if (min_resistance_distance < min_support_dictance) and (min_resistance_distance < th):
+        side = 'long'
+        buy_price = current_price
+        sell_price = 0
+        profit = 0
 
-    if min_resistance_distance <= th: 
-        opening_price_long.append(current_price)
-        quotations_long.append(quotation)
-    if min_support_dictance <= th: 
-        opening_price_short.append(current_price)
-        quotation_short.append(quotation)
+        date = datetime.datetime.utcnow()
+        stop_loss = buy_price - buy_price * stop
 
-    #if min_resistance_distance <= th: print(i, quotation, 'long', current_price, r, s, date)
-    #if min_support_dictance <= th: print(i, quotation, 'short', current_price, r, s, date)
+        #bot.telegram_message_send(str(date), TOKEN)
+
+        msg = str(date) + '\n' + quotation + ' ' + side + ' buy: ' + str(buy_price) + ', stop loss: ' + str(round(stop_loss, 4))
+
+        bot.telegram_message_send(msg, TOKEN)
+
+        order = True
+
+        while order:
+            data = session_unauth.latest_information_for_symbol(symbol=quotation)
+            current_price = float(data['result'][0]['last_price'])
+
+            profit = (current_price - buy_price) / buy_price * 100
+            
+            if current_price <= stop_loss:
+                order = False
+                date = datetime.datetime.utcnow()
+                sell_price = current_price
+            
+            if current_price > buy_price:
+                stop_loss = current_price - current_price * stop
+            
+            print(quotation, 'current:', current_price, '(', round(profit, 3), ')',
+                  'stop:', round(stop_loss, 4))
+        
+        #bot.telegram_message_send(str(date), TOKEN)
+
+        profit = (sell_price - buy_price) / buy_price * 100
+
+        msg = str(date) + '\n' + 'sell price: ' + str(sell_price) + ' profit: ' + str(round(profit, 4))
+        bot.telegram_message_send(msg, TOKEN)
 
     print(i)
     i += 1
 
-opening_price_long_np = np.array(opening_price_long)
-opening_price_short_np = np.array(opening_price_short)
+    if (min_support_dictance < min_resistance_distance) and (min_support_dictance < th):
+        side = 'short'
+        buy_price = current_price
+        sell_price = 0
+        profit = 0
 
-while True:
-    print('long:')
-    print('number of quotes', len(opening_price_long_np))
-    current_prices = price_checker(session_unauth, quotations_long)
-    print(np.sum((current_prices - opening_price_long_np)/
-           opening_price_long_np * 100))
+        date = datetime.datetime.utcnow()
+        stop_loss = buy_price + buy_price * stop
 
-    print('short:')
-    print('number of quotes', len(opening_price_short_np))
-    current_prices = price_checker(session_unauth, quotation_short)
-    print(np.sum((current_prices - opening_price_short_np)/
-           opening_price_short_np * 100))
+        #bot.telegram_message_send(str(date), TOKEN)
+
+        msg = str(date) + '\n' + quotation + ' ' + side + ' sell: ' + str(buy_price) + ', stop loss: ' + str(round(stop_loss, 4))
+
+        bot.telegram_message_send(msg, TOKEN)
+
+        order = True
+
+        while order:
+            data = session_unauth.latest_information_for_symbol(symbol=quotation)
+            current_price = float(data['result'][0]['last_price'])
+
+            profit = (buy_price - current_price) / buy_price * 100
+            
+            if current_price >= stop_loss:
+                order = False
+                date = datetime.datetime.utcnow()
+                sell_price = current_price
+            
+            if current_price < buy_price:
+                stop_loss = current_price + current_price * stop
+            
+            print(quotation, 'current:', current_price, '(', round(profit, 3), ')',
+                  'stop:', round(stop_loss, 4))
+        
+        #bot.telegram_message_send(str(date), TOKEN)
+
+        profit = (buy_price - sell_price) / buy_price * 100
+        
+        msg = str(date) + '\n' + 'sell price: ' + str(sell_price) + ' profit: ' + str(round(profit, 4))
+        bot.telegram_message_send(msg, TOKEN)
+
+    print(i)
+    i += 1
