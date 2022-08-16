@@ -19,10 +19,10 @@ def extremes_search(in_array):
                 val_max.append(in_array[i])
                 indexes_max.append(i)
 
-    #if in_array[-1] > in_array[-2]:
-    #    val_max.append(in_array[-1])
-    #if in_array[0] > in_array[1]:
-    #    val_max.append(in_array[0])
+    if in_array[-1] > in_array[-2]:
+        val_max.append(in_array[-1])
+    if in_array[0] > in_array[1]:
+        val_max.append(in_array[0])
 
     for i in range(0, len(in_array)-1):
         if in_array[i] <= in_array[i-1]:
@@ -30,10 +30,10 @@ def extremes_search(in_array):
                 val_min.append(in_array[i])
                 indexes_min.append(i)
     
-    #if in_array[-1] < in_array[-2]:
-    #    val_min.append(in_array[-1])
-    #if in_array[0] < in_array[1]:
-    #    val_min.append(in_array[0])
+    if in_array[-1] < in_array[-2]:
+        val_min.append(in_array[-1])
+    if in_array[0] < in_array[1]:
+        val_min.append(in_array[0])
 
     return val_max, val_min, indexes_max, indexes_min
 

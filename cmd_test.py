@@ -1,8 +1,7 @@
 from sys import argv
+import time
 
+import level_detector as ld
 
-print('params:')
-
-params = argv
-
-print(params[0])
+q = argv[1]
+ld.improvise_algorithm(q, 0.1, False, True)
