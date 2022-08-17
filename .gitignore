@@ -2,5 +2,6 @@
 *.csv
 images/
 market_history/
+trades/
 /telegram_key.txt
 /correlation.txt

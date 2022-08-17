@@ -24,19 +24,45 @@ func f(q string) {
 }
 
 func main() {
+	pref := "python analyzer.py"
+
 	files, err := ioutil.ReadDir("market_history")
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	var quotes []string
+
 	for _, file := range files {
-		quotation := strings.Split(file.Name(), ".")[0]
-		go f(quotation)
-		//fmt.Println(quotation)
+		quotes = append(quotes, strings.Split(file.Name(), ".")[0])
 	}
 
-	/* 	for i := 0; i < 5; i++ {
-		go f(quot[i])
+	//quotesSome := quotes[:3]
+
+	//fmt.Println(quotesSome)
+
+	for _, q := range quotes {
+		var command string
+		command = pref + " " + q
+
+		cmd := exec.Command("cmd.exe", "/C", command)
+
+		stdoutStderr, err := cmd.CombinedOutput()
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		s := string(stdoutStderr)
+		sss := strings.Split(s, " ")[1]
+
+		fmt.Println(q, sss)
+		//fmt.Printf("%s\n", sss)
+	}
+
+	/* 	for _, file := range fffS {
+		quotation := strings.Split(file, ".")[0]
+		go f(quotation)
 	} */
 
 	var input string
