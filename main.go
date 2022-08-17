@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-func f(q string) {
-	pred := "python cmd_test.py"
+func f(q, side string) {
+	pred := "python trader.py"
 
 	var command string
-	command = pred + " " + q
+	command = pred + " " + q + " " + side
 	cmd := exec.Command("cmd.exe", "/C", command)
 
 	stdoutStderr, err := cmd.CombinedOutput()
@@ -41,6 +41,7 @@ func main() {
 
 	//fmt.Println(quotesSome)
 
+	i := 0
 	for _, q := range quotes {
 		var command string
 		command = pref + " " + q
@@ -54,10 +55,34 @@ func main() {
 		}
 
 		s := string(stdoutStderr)
-		sss := strings.Split(s, " ")[1]
+		//fmt.Println(s)
+		sss := strings.Split(s, " ")
+		if len(sss) > 1 {
+			mark := strings.TrimRight(sss[1], "\r\n")
 
-		fmt.Println(q, sss)
-		//fmt.Printf("%s\n", sss)
+			//fmt.Println(mark)
+			//fmt.Printf("%s\n", sss)
+			l := "long"
+			s := "short"
+
+			if mark == l {
+				fmt.Println("xxx")
+				go f(q, mark)
+			}
+
+			if mark == s {
+				fmt.Println("yyyy")
+				go f(q, mark)
+			}
+
+			i++
+		} else {
+			fmt.Println("no levels")
+		}
+
+		if i >= 30 {
+			break
+		}
 	}
 
 	/* 	for _, file := range fffS {
