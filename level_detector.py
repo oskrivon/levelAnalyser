@@ -190,6 +190,8 @@ def downhill_algorithm(t, p, val_max, val_min):
     # downhill algorithm
     time = t[0]
 
+    last_time = t[-1] - np.timedelta64(20, 'm')
+
     times_max = []
     times_min = []
 
@@ -198,9 +200,10 @@ def downhill_algorithm(t, p, val_max, val_min):
 
     for val in sorted_max:
         index = np.where(val == p)[0][-1]
-        if t[index] >= time:            
-            times_max.append(t[index])
-            resistance_levels.append(val)
+        if t[index] >= time:
+            if t[index] < last_time:            
+                times_max.append(t[index])
+                resistance_levels.append(val)
 
             time = t[index]
 
@@ -209,8 +212,9 @@ def downhill_algorithm(t, p, val_max, val_min):
     for val in sorted_min:
         index = np.where(val == p)[0][-1]
         if t[index] >= time:
-            times_min.append(t[index])
-            support_levels.append(val)
+            if t[index] < last_time:
+                times_min.append(t[index])
+                support_levels.append(val)
 
             time = t[index]
     
@@ -391,10 +395,18 @@ def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
 
     for level in resistance_levels:
         if len(level_touches_res) == 0:
+            #index = np.where(level == p)[0][-1]
+            #highest = len(np.where(p[index:] > level)[0])
+
+            #if highest == 0:
             level_touches_res.append(level)
         else:
             diff = level_touches_res[-1] - level
             if diff >= eps:
+                #index = np.where(level == p)[0][-1]
+                #highest = len(np.where(p[index:] > level)[0])
+
+                #if highest == 0:
                 level_touches_res.append(level)
 
     for level in level_touches_res:
