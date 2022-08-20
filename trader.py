@@ -22,17 +22,17 @@ session_unauth = inverse_perpetual.HTTP(
     endpoint="https://api.bybit.com"
 )
 
-path = dirname + quotation + '.txt'
+market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
+current_price = float(market_data['result'][0]['last_price'])
+buy_price = current_price
+
+date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H-%M')
+
+path = dirname + quotation + ' ' + date + '.txt'
 
 file = Path(path)
 file.touch(exist_ok=True)
 f = open(file, 'w')
-
-market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
-current_price = float(market_data['result'][0]['last_price'])
-
-buy_price = current_price
-date = datetime.datetime.utcnow()
 
 if side == 'long': 
     side_ = side
@@ -40,8 +40,8 @@ if side == 'long':
 
     open_trade = (str(date) + '\n' + 
                   side_ + '\n' + 
-                  str(buy_price) + '\n' + 
-                  str(stop_loss) + '\n')
+                  'buy price: ' + str(buy_price) + '\n' + 
+                  'stop loss ' + str(stop_loss) + '\n')
 
     f.write(open_trade + '\n')
 
@@ -54,11 +54,13 @@ if side == 'long':
 
         if current_price <= stop_loss:
                 order = False
-                date = datetime.datetime.utcnow()
+                date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
                 sell_price = current_price
                 profit = (sell_price - buy_price) / buy_price * 100
 
-                close_trade = str(date) + '\n' + str(sell_price) + '\n' + str(profit)
+                close_trade = (str(date) + '\n' + 
+                               'sell price: ' + str(sell_price) + '\n' + 
+                               'profit: ' + str(profit))
                 f.write(close_trade + '\n')
             
         if current_price > buy_price:
@@ -71,8 +73,8 @@ if side == 'short':
 
     open_trade = (str(date) + '\n' + 
                   side_ + '\n' + 
-                  str(buy_price) + '\n' + 
-                  str(stop_loss) + '\n')
+                  'buy price: ' + str(buy_price) + '\n' + 
+                  'stop loss' + str(stop_loss) + '\n')
 
     f.write(open_trade + '\n')
 
@@ -85,11 +87,13 @@ if side == 'short':
 
         if current_price >= stop_loss:
             order = False
-            date = datetime.datetime.utcnow()
+            date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
             sell_price = current_price
             profit = (buy_price - current_price) / buy_price * 100
 
-            close_trade = str(date) + '\n' + str(sell_price) + '\n' + str(profit)
+            close_trade = (str(date) + '\n' + 
+                           'sell price: ' + str(sell_price) + '\n' + 
+                           'profit: ' + str(profit))
             f.write(close_trade + '\n')
 
         if current_price < buy_price:

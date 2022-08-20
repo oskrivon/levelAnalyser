@@ -66,18 +66,18 @@ func main() {
 			s := "short"
 
 			if mark == l {
-				fmt.Println("xxx")
+				fmt.Println(q, ":", l)
 				go f(q, mark)
 			}
 
 			if mark == s {
-				fmt.Println("yyyy")
+				fmt.Println(q, ":", s)
 				go f(q, mark)
 			}
 
 			i++
 		} else {
-			fmt.Println("no levels")
+			fmt.Println(q, ": no levels")
 		}
 
 		if i >= 30 {

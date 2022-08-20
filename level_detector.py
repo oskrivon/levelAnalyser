@@ -184,39 +184,26 @@ def data_preparation(quotation, interval):
     return minutly_price_update
 
 def downhill_algorithm(t, p, val_max, val_min):
+    last_time = t[-1] - np.timedelta64(20, 'm')
+
+    def level_screening(sorted_levels):
+        levels = []
+        time = t[0]
+
+        for val in sorted_levels:
+            index = np.where(val == p)[0][-1]
+            if t[index] >= time:
+                if t[index] < last_time:            
+                    levels.append(val)
+                    time = t[index]
+        
+        return levels
+    
     sorted_max = np.sort(val_max)[::-1]
     sorted_min = np.sort(val_min)
 
-    # downhill algorithm
-    time = t[0]
-
-    last_time = t[-1] - np.timedelta64(20, 'm')
-
-    times_max = []
-    times_min = []
-
-    resistance_levels = []
-    support_levels = []
-
-    for val in sorted_max:
-        index = np.where(val == p)[0][-1]
-        if t[index] >= time:
-            if t[index] < last_time:            
-                times_max.append(t[index])
-                resistance_levels.append(val)
-
-            time = t[index]
-
-    time = t[0]
-
-    for val in sorted_min:
-        index = np.where(val == p)[0][-1]
-        if t[index] >= time:
-            if t[index] < last_time:
-                times_min.append(t[index])
-                support_levels.append(val)
-
-            time = t[index]
+    resistance_levels = level_screening(sorted_max)
+    support_levels = level_screening(sorted_min)
     
     return resistance_levels, support_levels
 
@@ -395,19 +382,19 @@ def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
 
     for level in resistance_levels:
         if len(level_touches_res) == 0:
-            #index = np.where(level == p)[0][-1]
-            #highest = len(np.where(p[index:] > level)[0])
+            index = np.where(level == p)[0][-1]
+            highest = len(np.where(p[index:] > level)[0])
 
-            #if highest == 0:
-            level_touches_res.append(level)
+            if highest == 0:
+                level_touches_res.append(level)
         else:
             diff = level_touches_res[-1] - level
             if diff >= eps:
-                #index = np.where(level == p)[0][-1]
-                #highest = len(np.where(p[index:] > level)[0])
+                index = np.where(level == p)[0][-1]
+                highest = len(np.where(p[index:] > level)[0])
 
-                #if highest == 0:
-                level_touches_res.append(level)
+                if highest == 0:
+                    level_touches_res.append(level)
 
     for level in level_touches_res:
         count = 0
@@ -421,11 +408,19 @@ def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
 
     for level in support_levels:
         if len(level_touches_sup) == 0:
-            level_touches_sup.append(level)
+            index = np.where(level == p)[0][-1]
+            highest = len(np.where(p[index:] < level)[0])
+
+            if highest == 0:
+                level_touches_sup.append(level)
         else:
             diff = level - level_touches_sup[-1]
             if diff >= eps:
-                level_touches_sup.append(level)
+                index = np.where(level == p)[0][-1]
+                highest = len(np.where(p[index:] < level)[0])
+
+                if highest == 0:
+                    level_touches_sup.append(level)
 
     for level in level_touches_sup:
         count = 0

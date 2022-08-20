@@ -1,32 +1,19 @@
 from sys import argv
-from pybit import inverse_perpetual
+import numpy as np
+import datetime
+from pathlib import Path
 
-import telegram_posting as bot
+dirname = 'trades/'
+quotation = 'xxx'
 
+date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H-%M')
 
-TOKEN = open('telegram_key.txt', 'r').read()
+path = dirname + quotation + ' ' + date + '.txt'
 
-quotation = argv[1]
+file = Path(path)
+file.touch(exist_ok=True)
+f = open(file, 'w')
 
-#quotation = 'BTCUSDT'
-
-session_unauth = inverse_perpetual.HTTP(
-    endpoint="https://api.bybit.com"
-)
-
-print(quotation)
-
-f = open(quotation + '.txt', 'w')
-
-i = 0
-while i < 10:
-    data = session_unauth.latest_information_for_symbol(symbol=quotation)
-    current_price = float(data['result'][0]['last_price'])
-
-    f.write(str(current_price) + '\n')
-    #msg = quotation + str(current_price)
-    #bot.telegram_message_send(msg, TOKEN)
-    print(quotation, current_price)
-    i +=1
+f.write('open_trade' + '\n')
 
 f.close()
