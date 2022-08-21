@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
-func f(q, side string) {
+func trader(q, side string) {
 	pred := "python trader.py"
 
 	var command string
@@ -23,7 +26,7 @@ func f(q, side string) {
 	fmt.Printf("%s\n", stdoutStderr)
 }
 
-func main() {
+func analysisProcess() {
 	pref := "python analyzer.py"
 
 	files, err := ioutil.ReadDir("market_history")
@@ -32,14 +35,9 @@ func main() {
 	}
 
 	var quotes []string
-
 	for _, file := range files {
 		quotes = append(quotes, strings.Split(file.Name(), ".")[0])
 	}
-
-	//quotesSome := quotes[:3]
-
-	//fmt.Println(quotesSome)
 
 	i := 0
 	for _, q := range quotes {
@@ -54,25 +52,21 @@ func main() {
 			fmt.Println(err)
 		}
 
-		s := string(stdoutStderr)
-		//fmt.Println(s)
-		sss := strings.Split(s, " ")
-		if len(sss) > 1 {
-			mark := strings.TrimRight(sss[1], "\r\n")
-
-			//fmt.Println(mark)
-			//fmt.Printf("%s\n", sss)
+		analyzerResponse := string(stdoutStderr)
+		s := strings.Split(analyzerResponse, " ")
+		if len(s) > 1 {
+			mark := strings.TrimRight(s[1], "\r\n")
 			l := "long"
 			s := "short"
 
 			if mark == l {
 				fmt.Println(q, ":", l)
-				go f(q, mark)
+				go trader(q, mark)
 			}
 
 			if mark == s {
 				fmt.Println(q, ":", s)
-				go f(q, mark)
+				go trader(q, mark)
 			}
 
 			i++
@@ -84,11 +78,46 @@ func main() {
 			break
 		}
 	}
+}
 
-	/* 	for _, file := range fffS {
-		quotation := strings.Split(file, ".")[0]
-		go f(quotation)
-	} */
+func bybitRequest(quotation string) {
+	request := "https://api.bybit.com/v2/public/tickers?symbol=" + quotation
+	for {
+		respRaw, err := http.Get(request)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		var resp map[string][]interface{}
+		json.NewDecoder(respRaw.Body).Decode(&resp)
+
+		resultRaw := resp["result"]
+
+		result, ok := resultRaw[0].(map[string]interface{})
+		if !ok {
+			fmt.Println(quotation, "error of bybit request")
+		}
+
+		priceInterface := result["last_price"]
+		priceStr, ok := priceInterface.(string)
+		if !ok {
+			fmt.Println(quotation, "error interface -> string convert")
+		}
+
+		price, err := strconv.ParseFloat(priceStr, 64)
+
+		fmt.Println(quotation, price)
+	}
+}
+
+func main() {
+	//analysisProcess()
+
+	x := [6]string{"BTCUSDT", "1INCHUSDT", "BITUSDT", "CTKUSDT", "IOTXUSDT", "STXUSDT"}
+	//y := [1]string{"BTCUSDT"}
+	for _, q := range x {
+		go bybitRequest(q)
+	}
 
 	var input string
 	fmt.Scanln(&input)

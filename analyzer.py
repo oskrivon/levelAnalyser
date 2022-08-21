@@ -8,7 +8,7 @@ import level_detector as ld
 
 quotation = argv[1]
 
-res, supp = ld.improvise_algorithm(quotation, 0.1, False, True)
+res, supp = ld.improvise_algorithm(quotation, 0.1, False, False)
 res_np = np.array(res)
 supp_np = np.array(supp)
 #print(quotation, res, supp)
