@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os/exec"
 	"strconv"
@@ -26,10 +27,8 @@ func trader(q, side string) {
 	fmt.Printf("%s\n", stdoutStderr)
 }
 
-func analysisProcess() {
-	pref := "python analyzer.py"
-
-	files, err := ioutil.ReadDir("market_history")
+func filesListReturn(path string) []string {
+	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -39,84 +38,117 @@ func analysisProcess() {
 		quotes = append(quotes, strings.Split(file.Name(), ".")[0])
 	}
 
-	i := 0
-	for _, q := range quotes {
-		var command string
-		command = pref + " " + q
-
-		cmd := exec.Command("cmd.exe", "/C", command)
-
-		stdoutStderr, err := cmd.CombinedOutput()
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		analyzerResponse := string(stdoutStderr)
-		s := strings.Split(analyzerResponse, " ")
-		if len(s) > 1 {
-			mark := strings.TrimRight(s[1], "\r\n")
-			l := "long"
-			s := "short"
-
-			if mark == l {
-				fmt.Println(q, ":", l)
-				go trader(q, mark)
-			}
-
-			if mark == s {
-				fmt.Println(q, ":", s)
-				go trader(q, mark)
-			}
-
-			i++
-		} else {
-			fmt.Println(q, ": no levels")
-		}
-
-		if i >= 30 {
-			break
-		}
-	}
+	return quotes
 }
 
-func bybitRequest(quotation string) {
+func levelAnalysis(quotation string, volumeFlag, imageFlag bool) (resistLevel, suppotrLevel float64) {
+	var (
+		command string
+	)
+
+	pref := "python analyzer.py"
+
+	command = pref + " " + quotation + " " +
+		strconv.FormatBool(volumeFlag) + " " +
+		strconv.FormatBool(imageFlag)
+
+	cmd := exec.Command("cmd.exe", "/C", command)
+
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	analyzerResponse := strings.TrimRight(string(stdoutStderr), "\r\n")
+	s := strings.Split(analyzerResponse, " ")
+
+	fmt.Println(s)
+
+	resistLevel, err = strconv.ParseFloat(s[1], 64)
+	if err != nil {
+		fmt.Println("error with float-convert resistance level")
+	}
+
+	suppotrLevel, err = strconv.ParseFloat(s[2], 64)
+	if err != nil {
+		fmt.Println("error with float-convert support level")
+	}
+
+	return resistLevel, suppotrLevel
+}
+
+func bybitRequest(quotation string) (respRaw *http.Response, err error) {
 	request := "https://api.bybit.com/v2/public/tickers?symbol=" + quotation
+	respRaw, err = http.Get(request)
+
+	return respRaw, err
+}
+
+func bybitParcer(respRaw *http.Response) (float64, error) {
+	var resp map[string][]interface{}
+	json.NewDecoder(respRaw.Body).Decode(&resp)
+
+	resultRaw := resp["result"]
+
+	result, ok := resultRaw[0].(map[string]interface{})
+	if !ok {
+		fmt.Println("bybitParcer>>> error of bybit request")
+	}
+
+	priceInterface := result["last_price"]
+	priceStr, ok := priceInterface.(string)
+	if !ok {
+		fmt.Println("bybitParcer>>> error interface -> string convert")
+	}
+
+	return strconv.ParseFloat(priceStr, 64)
+}
+
+func priceChecker(quotation string, th, resistanceLevel, supportLevel float64) {
+	longSide := "long"
+	shortSide := "short"
+
 	for {
-		respRaw, err := http.Get(request)
+		respRaw, err := bybitRequest(quotation)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("priceChecker error >>>", err)
 		}
 
-		var resp map[string][]interface{}
-		json.NewDecoder(respRaw.Body).Decode(&resp)
-
-		resultRaw := resp["result"]
-
-		result, ok := resultRaw[0].(map[string]interface{})
-		if !ok {
-			fmt.Println(quotation, "error of bybit request")
+		currentPrice, err := bybitParcer(respRaw)
+		if err != nil {
+			fmt.Println("priceChecker error >>>", err)
 		}
 
-		priceInterface := result["last_price"]
-		priceStr, ok := priceInterface.(string)
-		if !ok {
-			fmt.Println(quotation, "error interface -> string convert")
+		resistanceDictance := math.Abs(resistanceLevel-currentPrice) / currentPrice * 100
+		supportDictance := math.Abs(supportLevel-currentPrice) / currentPrice * 100
+
+		//fmt.Println(quotation, " :", resistanceDictance, supportDictance)
+
+		if resistanceDictance < th {
+			fmt.Println(quotation, ":", longSide)
+			trader(quotation, longSide)
 		}
 
-		price, err := strconv.ParseFloat(priceStr, 64)
+		if supportDictance < th {
+			fmt.Println(quotation, ":", shortSide)
+			trader(quotation, shortSide)
+		}
 
-		fmt.Println(quotation, price)
+		if (currentPrice > resistanceLevel) || (currentPrice < supportLevel) {
+			resistanceLevel, supportLevel = levelAnalysis(quotation, false, true)
+			fmt.Println(quotation, ": ", "levels recalculate")
+		}
 	}
 }
 
 func main() {
-	//analysisProcess()
+	quotes := filesListReturn("market_history")
 
-	x := [6]string{"BTCUSDT", "1INCHUSDT", "BITUSDT", "CTKUSDT", "IOTXUSDT", "STXUSDT"}
-	//y := [1]string{"BTCUSDT"}
-	for _, q := range x {
-		go bybitRequest(q)
+	th := 0.05
+
+	for _, q := range quotes[10:30] {
+		resistanceLevel, supportLevel := levelAnalysis(q, false, true)
+		go priceChecker(q, th, resistanceLevel, supportLevel)
 	}
 
 	var input string
