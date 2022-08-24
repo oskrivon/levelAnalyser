@@ -1,6 +1,7 @@
 from sys import argv
 import numpy as np
 import datetime
+import time
 from pathlib import Path
 
 from pybit import inverse_perpetual
@@ -32,9 +33,17 @@ def get_price():
 
 def get_current_levels():
     resists, supports = ld.improvise_algorithm(quotation, 0.1, volume_flag, image_flag)
-    res_np = np.array(resists)
-    supp_np = np.array(supports)
-    return res_np[-1], supp_np[-1]
+    if len(resists) > 0:
+        resistance_level = np.array(resists)[-1]
+    else:
+        resistance_level = 0
+    
+    if len(supports) > 0:
+        support_level = np.array(supports)[-1]
+    else:
+        support_level = 0
+
+    return resistance_level, support_level
 
 
 def open_log():
@@ -75,7 +84,7 @@ def close_trade(current_price, log_file):
     #return date, sell_price, profit
 
 
-def trade(side, stop_loss, order, log_file):
+def trade(side, stop_loss, buy_price, order, log_file):
     while order:
         current_price = get_price()
 
@@ -95,27 +104,35 @@ def trade(side, stop_loss, order, log_file):
                 stop_loss = current_price + current_price * (stop / 3)
 
 
+calc_time = time.perf_counter()
 resistance_level, support_level = get_current_levels()
 
 while True:
     current_price = get_price()
 
-    resistance_distance = abs(resistance_level - current_price) / current_price * 100
-    support_distance = abs(support_level - current_price) / current_price * 100
+    if resistance_level != 0:
+        resistance_distance = abs(resistance_level - current_price) / current_price * 100
+        if resistance_distance <= th:
+            side = 'long'
+            date, buy_price, stop_loss, log_file = open_trade(side, current_price)
 
-    if resistance_distance <= th:
-        side = 'long'
-        date, buy_price, stop_loss, log_file = open_trade(side, current_price)
+            order = True
+            trade(side, stop_loss, buy_price, order, log_file)
 
-        order = True
-        trade(side, stop_loss, order, log_file)
-    
-    if support_distance <= th:
-        side = 'short'
-        date, buy_price, stop_loss, log_file = open_trade(side, current_price)
+    if support_level != 0:
+        support_distance = abs(support_level - current_price) / current_price * 100    
+        if support_distance <= th:
+            side = 'short'
+            date, buy_price, stop_loss, log_file = open_trade(side, current_price)
 
-        order = True
-        trade(side, stop_loss, order, log_file)
+            order = True
+            trade(side, stop_loss, buy_price, order, log_file)
     
     if (current_price > resistance_level) or (current_price < support_level):
         resistance_level, support_level = get_current_levels()
+
+    if (resistance_level == 0) or (support_level == 0):
+        new_calc_time = time.perf_counter()
+        if new_calc_time - calc_time >= 5 * 60:
+            resistance_level, support_level = get_current_levels()
+            calc_time = time.perf_counter()
