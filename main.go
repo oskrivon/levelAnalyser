@@ -11,11 +11,13 @@ import (
 	"strings"
 )
 
-func trader(q, side string) {
+func trader(quotation string, volumeFlag, imageFlag bool) {
 	pred := "python trader.py"
 
 	var command string
-	command = pred + " " + q + " " + side
+	command = pred + " " + quotation + " " +
+		strconv.FormatBool(volumeFlag) + " " +
+		strconv.FormatBool(imageFlag)
 	cmd := exec.Command("cmd.exe", "/C", command)
 
 	stdoutStderr, err := cmd.CombinedOutput()
@@ -126,12 +128,12 @@ func priceChecker(quotation string, th, resistanceLevel, supportLevel float64) {
 
 		if resistanceDictance < th {
 			fmt.Println(quotation, ":", longSide)
-			trader(quotation, longSide)
+			trader(quotation, false, true)
 		}
 
 		if supportDictance < th {
 			fmt.Println(quotation, ":", shortSide)
-			trader(quotation, shortSide)
+			trader(quotation, false, true)
 		}
 
 		if (currentPrice > resistanceLevel) || (currentPrice < supportLevel) {
@@ -144,11 +146,11 @@ func priceChecker(quotation string, th, resistanceLevel, supportLevel float64) {
 func main() {
 	quotes := filesListReturn("market_history")
 
-	th := 0.05
+	//th := 0.05
 
-	for _, q := range quotes[10:30] {
-		resistanceLevel, supportLevel := levelAnalysis(q, false, true)
-		go priceChecker(q, th, resistanceLevel, supportLevel)
+	for _, q := range quotes[40:50] {
+		//resistanceLevel, supportLevel := levelAnalysis(q, false, true)
+		go trader(q, false, true)
 	}
 
 	var input string

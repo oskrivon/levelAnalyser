@@ -5,98 +5,117 @@ from pathlib import Path
 
 from pybit import inverse_perpetual
 
+import level_detector as ld
+import logger as log
+
+
+def str_to_bool(v):
+    return str(v).lower() in ('true', '1')
 
 quotation = str(argv[1])
-side = str(argv[2])
+volume_flag = str_to_bool(argv[2])
+image_flag = str_to_bool(argv[3])
 
 stop = 0.003
+th = 0.05
 dirname = 'trades/'
-
-side_ = ''
-buy_price = 0
-sell_price = 0
-profit = 0
-stop_loss = 0
 
 session_unauth = inverse_perpetual.HTTP(
     endpoint="https://api.bybit.com"
 )
 
-market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
-current_price = float(market_data['result'][0]['last_price'])
-buy_price = current_price
 
-date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H-%M')
+def get_price():
+    market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
+    return float(market_data['result'][0]['last_price'])
 
-path = dirname + quotation + ' ' + date + '.txt'
 
-file = Path(path)
-file.touch(exist_ok=True)
-f = open(file, 'w')
+def get_current_levels():
+    resists, supports = ld.improvise_algorithm(quotation, 0.1, volume_flag, image_flag)
+    res_np = np.array(resists)
+    supp_np = np.array(supports)
+    return res_np[-1], supp_np[-1]
 
-if side == 'long': 
-    side_ = side
-    stop_loss = buy_price - buy_price * stop
 
-    open_trade = (str(date) + '\n' + 
-                  side_ + '\n' + 
-                  'buy price: ' + str(buy_price) + '\n' + 
-                  'stop loss ' + str(stop_loss) + '\n')
+def open_log():
+    date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H-%M')
+    path = dirname + quotation + ' ' + date + '.txt'
+    file = Path(path)
+    file.touch(exist_ok=True)
+    return open(file, 'w')
 
-    f.write(open_trade + '\n')
 
-    order = True
+def open_trade(side, current_price):
+    log_file = open_log()
 
+    date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    buy_price = current_price
+
+    if side == 'long':
+        stop_loss = buy_price - buy_price * stop
+    if side == 'short':
+        stop_loss = buy_price + buy_price * stop
+
+    log_msg = log.log_open_trade(date, side, buy_price, stop_loss)
+    log_file.write(log_msg + '\n')
+
+    return date, buy_price, stop_loss, log_file
+
+
+def close_trade(current_price, log_file):
+    date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    sell_price = current_price
+    profit = (sell_price - buy_price) / buy_price * 100
+
+    log_msg = log.log_close_trade(date, sell_price, profit)
+
+    log_file.write(log_msg + '\n')
+    log_file.close()
+
+    #return date, sell_price, profit
+
+
+def trade(side, stop_loss, order, log_file):
     while order:
-        market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
-        current_price = float(market_data['result'][0]['last_price'])
-        profit = (current_price - buy_price) / buy_price * 100
+        current_price = get_price()
 
-        if current_price <= stop_loss:
+        if side == 'long':
+            if current_price <= stop_loss:
                 order = False
-                date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-                sell_price = current_price
-                profit = (sell_price - buy_price) / buy_price * 100
+                close_trade(current_price, log_file)
 
-                close_trade = (str(date) + '\n' + 
-                               'sell price: ' + str(sell_price) + '\n' + 
-                               'profit: ' + str(profit))
-                f.write(close_trade + '\n')
-            
-        if current_price > buy_price:
-            stop_loss = current_price - current_price * (stop / 3)
+            if current_price > buy_price:
+                stop_loss = current_price - current_price * (stop / 3)
+        else:
+            if current_price >= stop_loss:
+                order = False
+                close_trade(current_price, log_file)
+
+            if current_price < buy_price:
+                stop_loss = current_price + current_price * (stop / 3)
 
 
-if side == 'short':
-    side_ = side
-    stop_loss = buy_price + buy_price * stop
+resistance_level, support_level = get_current_levels()
 
-    open_trade = (str(date) + '\n' + 
-                  side_ + '\n' + 
-                  'buy price: ' + str(buy_price) + '\n' + 
-                  'stop loss' + str(stop_loss) + '\n')
+while True:
+    current_price = get_price()
 
-    f.write(open_trade + '\n')
+    resistance_distance = abs(resistance_level - current_price) / current_price * 100
+    support_distance = abs(support_level - current_price) / current_price * 100
 
-    order = True
+    if resistance_distance <= th:
+        side = 'long'
+        date, buy_price, stop_loss, log_file = open_trade(side, current_price)
 
-    while order:
-        market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
-        current_price = float(market_data['result'][0]['last_price'])
-        profit = (buy_price - current_price) / buy_price * 100
+        order = True
+        trade(side, stop_loss, order, log_file)
+    
+    if support_distance <= th:
+        side = 'short'
+        date, buy_price, stop_loss, log_file = open_trade(side, current_price)
 
-        if current_price >= stop_loss:
-            order = False
-            date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            sell_price = current_price
-            profit = (buy_price - current_price) / buy_price * 100
-
-            close_trade = (str(date) + '\n' + 
-                           'sell price: ' + str(sell_price) + '\n' + 
-                           'profit: ' + str(profit))
-            f.write(close_trade + '\n')
-
-        if current_price < buy_price:
-            stop_loss = current_price + current_price * (stop / 3)
-
-f.close()
+        order = True
+        trade(side, stop_loss, order, log_file)
+    
+    if (current_price > resistance_level) or (current_price < support_level):
+        resistance_level, support_level = get_current_levels()
