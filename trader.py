@@ -1,5 +1,6 @@
 from sys import argv
 import numpy as np
+import pandas as pd
 import datetime
 import time
 from pathlib import Path
@@ -20,6 +21,7 @@ image_flag = str_to_bool(argv[3])
 stop = 0.003
 th = 0.05
 dirname = 'trades/'
+lof_dirname = 'trades/logs/'
 
 session_unauth = inverse_perpetual.HTTP(
     endpoint="https://api.bybit.com"
@@ -85,19 +87,40 @@ def close_trade(current_price, log_file):
 
 
 def trade(side, stop_loss, buy_price, order, log_file):
+    timestamp = []
+    prices = []
+
+    date_open = datetime.datetime.utcnow().strftime('%Y-%m-%d %H-%M')
+
     while order:
         current_price = get_price()
 
         if side == 'long':
+            timestamp.append(datetime.datetime.utcnow())
+            prices.append(current_price)
+
             if current_price <= stop_loss:
                 order = False
+
+                log_list = {'timestamp': timestamp, 'price': prices}
+                df = pd.DataFrame(log_list)
+                df.to_csv(lof_dirname + quotation + ' ' + date_open + '.csv')
+
                 close_trade(current_price, log_file)
 
             if current_price > buy_price:
                 stop_loss = current_price - current_price * (stop / 3)
         else:
+            timestamp.append(datetime.datetime.utcnow())
+            prices.append(current_price)
+
             if current_price >= stop_loss:
                 order = False
+
+                log_list = {'timestamp': timestamp, 'price': prices}
+                df = pd.DataFrame(log_list)
+                df.to_csv(lof_dirname + quotation + ' ' + date_open + '.csv')
+
                 close_trade(current_price, log_file)
 
             if current_price < buy_price:
