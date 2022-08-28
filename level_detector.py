@@ -1,11 +1,6 @@
-import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib import style
-import mplfinance as mpf
 import numpy as np
-from scipy.signal import savgol_filter
 from sklearn.cluster import KMeans
-from sklearn.cluster import DBSCAN
 from sklearn.metrics import silhouette_score
 
 import df_common as dfc
@@ -58,130 +53,6 @@ def touch_count(in_array, threshold, touches_count):
             level_prices.append(in_array[i])
     return level_prices
 
-def silhouette_coefficient(data):
-    data_reshape = np.reshape(data, (-1, 1))
-
-    scores = []
-    coefficient = []
-    
-    for k in range(2,4):
-        estimator = KMeans (n_clusters = k)
-        estimator.fit(data_reshape)
-        try:
-            scores.append(silhouette_score(data_reshape,estimator.labels_,metric='euclidean'))
-        except ValueError:
-            scores.append(0)
-        coefficient.append(k)
-    
-    index_of_max = scores.index(max(scores))
-    return coefficient[index_of_max]
-
-def plot_create(x, y, y_smooth, quotation, resistance, support, 
-                cluster_numbers, threshold, diff_percent):
-    fig, ax = plt.subplots(figsize=(16, 8))
-    plt.title(label=quotation)
-    ax.grid()
-    ax.plot(x, y)
-    ax.plot(x, y_smooth)
-
-    levels_resistances_txt = ""
-    if len(resistance) == 0:
-        levels_resistances_txt = "resistances not found"
-    else:
-        for i in resistance:
-            ax.hlines(i, x.min(), x.max(), color = 'r', alpha = 1)
-            levels_resistances_txt = levels_resistances_txt + " " + str(i.round(2))
-
-    levels_supports_txt = ""
-    if len(support) == 0:
-        levels_supports_txt = "supports not found"
-    else:
-        for i in support:
-            ax.hlines(i, x.min(), x.max(), color = 'g', alpha = 1)
-            levels_supports_txt = levels_supports_txt + " " + str(i.round(2))
-
-    tx = ("resistances: " + levels_resistances_txt + '\n' + 
-          "supports: " + levels_supports_txt + '\n' + 
-          "cluster count = " + str(cluster_numbers) + '\n' + 
-          "threshold = " + str(threshold.round(5)) + '\n' + 
-          "diff_percent = " + str(diff_percent.round(5)) + "%"
-         )
-
-    ax.text(x.min(), y.min(), tx, size = 13)
-
-    return plt
-
-def mpf_plot(df, quotation, resistance, support, cluster_numbers,
-             threshold, diff_percent, eps, volume_flag):
-    def levels_text_create(levels):
-        tx = ''
-        if len(levels) == 0:
-            tx = 'resistances not found'
-        else:
-            for lv in levels:
-                tx = tx + ' ' + str(lv.round(4))
-        return tx
-
-    resistance_tx = levels_text_create(resistance)
-    support_tx = levels_text_create(support)
-
-    tx = (quotation + '  ' + str(df.index[0]) + ' - ' + str(df.index[-1]) + '\n' +
-          'th = ' + str(threshold) + ' | ' + 
-          'max_diff = ' + str(diff_percent.round(5)) + '%' + ' | ' + 
-          'eps = ' + str(eps.round(5)) + ' | ' + 
-          'cluster numbers = ' + str(cluster_numbers) + '\n' + 
-          'resistances: ' + resistance_tx + '\n' + 
-          'supports: ' + support_tx
-         )
-    
-    levels =  resistance + support
-    colors = tuple(['r'] * len(resistance) + ['g'] * len(support))
-
-    hlines_config = dict(hlines=levels, 
-                         colors=colors, 
-                         linewidths=1
-                        )
-    tittle_config = dict(title = tx, y = 1, x = 0.11,
-                         fontsize = 10, fontweight = 10,
-                         ha = 'left')
-    save_config = dict(fname = 'images/' + quotation + '.png',
-                       transparent = False)
-
-    mpf.plot(df, type='line', volume=volume_flag, style='yahoo',
-             figratio=(16,8), xrotation=0, figscale=1,
-             hlines=hlines_config,
-             title=tittle_config,
-             savefig=save_config,
-             tight_layout=True
-            )
-
-def data_preparation(quotation, interval):
-    df_path = 'market_history/' + quotation + '.csv'
-    df_raw = pd.read_csv(df_path)
-
-    # open datasets and create dataframe
-    df = dfc.dataframe_create(df=df_raw,
-                              drop=['symbol', 'tickDirection', 'trdMatchID', 
-                                    'side', 'grossValue', 'homeNotional', 
-                                     'foreignNotional'
-                                     ],
-                              timestamp = 's'
-                              )
-    
-    minutes_per_unit = {"m": 1, "h": 60, "d": 1440}
-
-    def convert_to_minutes(s):
-        return int(s[:-1]) * minutes_per_unit[s[-1]]
-
-    interval_ = convert_to_minutes(interval)
-
-    # gpouping data to tameframe
-    minutly_price = dfc.grouping_by_time(df, str(interval_)+'min')
-
-    # update
-    minutly_price_update = dfc.data_update(minutly_price, quotation, interval_)
-
-    return minutly_price_update
 
 def downhill_algorithm(t, p, val_max, val_min):
     last_time = t[-1] - np.timedelta64(20, 'm')
@@ -207,166 +78,11 @@ def downhill_algorithm(t, p, val_max, val_min):
     
     return resistance_levels, support_levels
 
-def DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples):
-    def level_clusters(levels, func):
-        X = np.reshape(levels, (-1,1))
-        db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
 
-        labels = db.labels_
-        labels_set = set(labels)
-        labels_set.discard(-1)
-        clusters_num = len(labels_set)
-
-        levels_np = np.array(levels)
-
-        levels_array = []
-
-        for label in labels_set:
-            indexes = np.where(labels == label)
-            levels_array.append(func(levels_np[indexes]))
-        
-        return levels_array, clusters_num
-
-    resistance_array, clusters_resistance = level_clusters(resistance_levels, max)
-    supports_array, clusters_supports = level_clusters(support_levels, min)
-    clusters_num = clusters_resistance + clusters_supports
-
-    return resistance_array, supports_array, clusters_num
-
-def resistance_search(quotation, th, savgol_filter_param, poly, touches):
-    minutly_price = data_preparation(quotation)
-
+def improvise_algorithm(price: np.array, timestamp: np.array, th):
     # from dataframe to numpy array
-    p = np.array(minutly_price['High'])
-    t = np.array(minutly_price.index)
-
-    # smoothing
-    p_smooth = savgol_filter(p, savgol_filter_param, poly)
-
-    # searching local extremes
-    val_max, val_min, indexes_max, indexes_min = extremes_search(p_smooth)
-
-    # set the threshold and percent difference
-    diff_percent = (np.max(p) - np.min(p))/np.max(p)
-
-    threshold = diff_percent * th * np.min(p_smooth)
-
-    # level touch count for max
-    level_prices = touch_count(val_max, threshold, touches)
-
-    resistance_levels = []
-    cluster_numbers = 0
-
-    if len(level_prices) > 1:
-        if len(level_prices) > 10:
-            # clusters count
-            cluster_numbers = silhouette_coefficient(level_prices)
-
-            # one-cluster detection (if clusters > 2 -> cluster only one)    
-            if cluster_numbers <= 3:
-                level_prices_reshape = np.reshape(level_prices, (-1, 1))
-
-                kmeans = KMeans(n_clusters = cluster_numbers)
-                kmeans.fit(level_prices_reshape)
-
-                labels = kmeans.labels_
-                for i in range(cluster_numbers):
-                    indexes = np.where(labels == i)[0]
-                    max_index = np.min(indexes)
-
-                    resistance_levels.append(level_prices[max_index])
-            else:
-                resistance_levels.append(max(level_prices))
-        else: 
-            resistance_levels.append(max(level_prices))
-
-    # plot create
-    fig = plot_create(t, p, p_smooth, quotation, resistance_levels, cluster_numbers, threshold, diff_percent)
-    fig.savefig('images/' + quotation + '.png')
-
-def resistance_search_downhill(quotation, th, savgol_filter_param, poly, volume_flag):
-    minutly_price = data_preparation(quotation)
-
-    # from dataframe to numpy array
-    p = np.array(minutly_price['High'])
-    t = np.array(minutly_price.index)
-
-    # smoothing
-    p_smooth = savgol_filter(p, savgol_filter_param, poly)
-
-    # searching local extremes
-    val_max, val_min, indexes_max, indexes_min = extremes_search(p)
-
-    # set the threshold and percent difference
-    diff_percent = (np.max(p) - np.min(p))/np.max(p)
-
-    threshold = diff_percent * th * np.min(p)
-
-    # downhill algorithm
-    resistance_levels, support_levels = downhill_algorithm(t, p, val_max, val_min)
-
-    # gag
-    cluster_numbers = 99
-
-    mpf_plot(minutly_price, quotation, resistance_levels, support_levels,
-             cluster_numbers, th, diff_percent, threshold, volume_flag)
-
-    return resistance_levels, support_levels
-
-def resistance_search_downhill_and_DBSCAN(quotation, th, savgol_filter_param, poly, min_samples, volume_flag):
-    minutly_price = data_preparation(quotation)
-
-    # from dataframe to numpy array
-    p = np.array(minutly_price['Close'])
-    t = np.array(minutly_price.index)
-
-    # smoothing
-    p_smooth = savgol_filter(p, savgol_filter_param, poly)
-
-    # searching local extremes
-    val_max, val_min, _, _ = extremes_search(p)
-
-    # set the threshold and percent difference
-    diff_percent = (np.max(p) - np.min(p))/np.max(p)
-
-    eps = th * (np.max(p) - np.min(p))
-
-    # downhill algorithm
-    resistance_levels, support_levels = downhill_algorithm(t, p, val_max, val_min)
-
-    resistance_levels_db, support_levels_db, cluster_numbers = DBSCAN_clusters(resistance_levels, support_levels, eps, min_samples)
-
-    resistance_final = []
-    support_final = []
-
-    if len(resistance_levels_db) > 0:
-        for level in resistance_levels_db:
-            res_index = np.where(np.array(level) == p)[0][0]
-            resistance_final.append(p[res_index])
-
-    if len(resistance_levels_db) > 0:
-        for level in support_levels_db:
-            supp_index = np.where(np.array(level) == p)[0][0]
-            support_final.append(p[supp_index])
-
-    #fig = plot_create(t, p, p_smooth, quotation, resistance_levels_db, support_levels_db, cluster_numbers, eps, diff_percent)
-    #fig.savefig('images/' + quotation + '.png')
-
-    mpf_plot(minutly_price, quotation, resistance_final, support_final,
-             cluster_numbers, th, diff_percent, eps, volume_flag)
-
-    return resistance_final, support_final
-
-def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
-    data = data_preparation(quotation, '15m')
-
-    # volumes printing
-    print('volumes:')
-    print(data['Volume'])
-
-    # from dataframe to numpy array
-    p = np.array(data['Close'])
-    t = np.array(data.index)
+    p = price
+    t = timestamp
 
     # searching local extremes
     val_max, val_min, _, _ = extremes_search(p)
@@ -376,9 +92,6 @@ def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
 
     # set the threshold and percent difference
     eps = th * (np.max(p) - np.min(p))
-    diff_percent = eps
-    cluster_numbers = 0
-    #########################################
 
     # search in maximums
     level_touches_res = []
@@ -431,9 +144,5 @@ def improvise_algorithm(quotation, th, volume_flag, log_flag=False):
         for level_ in support_levels:
             diff = abs(level - level_)
             if diff <= eps: count +=1
-
-    if log_flag:
-        mpf_plot(data, quotation, level_touches_res, level_touches_sup,
-                cluster_numbers, th, diff_percent, eps, volume_flag)
 
     return level_touches_res, level_touches_sup

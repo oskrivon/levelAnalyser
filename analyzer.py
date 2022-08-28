@@ -4,17 +4,24 @@ import numpy as np
 from pybit import inverse_perpetual
 
 import level_detector as ld
+import data_preparer
+import plotter
+import volume_analyzer as va
 
 
-def str_to_bool(v):
-    return str(v).lower() in ('true', '1')
-    
+def analysis(quotation, log_flag: bool, volume_flag: bool):
+    th = 0.05
+    df = data_preparer.data_preparation(quotation, '15m')
 
-quotation = argv[1]
-volume_flag = str_to_bool(argv[2])
-image_flag = str_to_bool(argv[3])
+    price = np.array(df['Open'])
+    volumes = np.array(df['Volume'])
+    timestamps = np.array(df.index)
 
-res, supp = ld.improvise_algorithm(quotation, 0.1, volume_flag, image_flag)
-res_np = np.array(res)
-supp_np = np.array(supp)
-print(quotation, res_np[-1], supp_np[-1])
+    resistance_levels, support_levels = ld.improvise_algorithm(price, timestamps, th)
+    vvv = va.volume_analyzer(volumes, timestamps)
+
+    if log_flag:
+        plotter.mpf_plot(df, quotation, resistance_levels, support_levels,
+                         th, volume_flag)
+
+    return resistance_levels, support_levels, vvv
