@@ -9,19 +9,17 @@ import plotter
 import volume_analyzer as va
 
 
-def analysis(quotation, log_flag: bool, volume_flag: bool):
+def preliminary_analysis(quotation, log_flag: bool, volume_flag: bool):
     th = 0.05
     df = data_preparer.data_preparation(quotation, '15m')
 
-    price = np.array(df['Open'])
-    volumes = np.array(df['Volume'])
+    price = np.array(df['High'])
     timestamps = np.array(df.index)
 
     resistance_levels, support_levels = ld.improvise_algorithm(price, timestamps, th)
-    vvv = va.volume_analyzer(volumes, timestamps)
 
     if log_flag:
         plotter.mpf_plot(df, quotation, resistance_levels, support_levels,
                          th, volume_flag)
 
-    return resistance_levels, support_levels, vvv
+    return resistance_levels, support_levels

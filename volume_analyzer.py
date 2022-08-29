@@ -1,9 +1,14 @@
+from turtle import shape
 import numpy as np
+import pandas as pd
 
 
-def volume_analyzer(volumes: np.array, timestamp: np.array):
-    mean = np.mean(volumes)
-    last = volumes[-1]
-    print(np.mean(volumes))
+def volume_analyzer(volumes: np.array):
+    previous = volumes[-2]
 
-    return mean, last
+    d = {'volumes': volumes}
+    data = pd.DataFrame(data=d)
+
+    q50 = data.quantile(q=.50)[0]
+
+    return previous, q50
