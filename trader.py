@@ -6,9 +6,11 @@ import time
 from pathlib import Path
 
 from pybit import inverse_perpetual
+from pybit import usdt_perpetual
 
 import level_detector as ld
 import logger as log
+import analyzer
 
 
 def str_to_bool(v):
@@ -25,8 +27,19 @@ lof_dirname = 'trades/logs/'
 
 session_unauth = inverse_perpetual.HTTP(
     endpoint="https://api.bybit.com"
-)
+    )
 
+session_open_value = usdt_perpetual.HTTP(
+    endpoint="https://api.bybit.com"
+    )
+
+
+def get_makret_data():
+    market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
+    price = float(market_data['result'][0]['last_price'])
+    open_interest = float(market_data['result'][0]['open_interest'])
+
+    return price, open_interest
 
 def get_price():
     market_data = session_unauth.latest_information_for_symbol(symbol=quotation)
@@ -34,7 +47,8 @@ def get_price():
 
 
 def get_current_levels():
-    resists, supports = ld.improvise_algorithm(quotation, 0.1, volume_flag, image_flag)
+    resists, supports, volume = analyzer.preliminary_analysis(quotation, image_flag, volume_flag)
+
     if len(resists) > 0:
         resistance_level = np.array(resists)[-1]
     else:
@@ -62,12 +76,42 @@ def open_trade(side, current_price):
     date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
     buy_price = current_price
 
+    
+    # sketch of the volume-module
+    interval = 15
+
+    start_unix = datetime.datetime.now() - datetime.timedelta(hours=1)
+    start = int(datetime.datetime.timestamp(start_unix))
+
+    bybit_response = session_open_value.query_kline(
+                    symbol=quotation,
+                    interval=interval,
+                    #limit=200,
+                    from_time=start
+                    )
+    
+    results = bybit_response['result'][:-1]
+    volume = results[-1]['volume']
+    # sketch end
+
+    # sketch for open interest
+    period = '5min'
+    bybit_response = session_unauth.open_interest(
+                     symbol=quotation,
+                     period=period
+                     )
+
+    open_interest = bybit_response['result'][0]['open_interest']
+    # sketch end
+
     if side == 'long':
         stop_loss = buy_price - buy_price * stop
     if side == 'short':
         stop_loss = buy_price + buy_price * stop
 
-    log_msg = log.log_open_trade(date, side, buy_price, stop_loss)
+    log_msg = log.log_open_trade(date, side, buy_price, 
+                                 stop_loss, volume, open_interest)
+                                 
     log_file.write(log_msg + '\n')
 
     return date, buy_price, stop_loss, log_file
@@ -135,6 +179,7 @@ while True:
 
     if resistance_level != 0:
         resistance_distance = abs(resistance_level - current_price) / current_price * 100
+
         if resistance_distance <= th:
             side = 'long'
             date, buy_price, stop_loss, log_file = open_trade(side, current_price)
@@ -143,7 +188,8 @@ while True:
             trade(side, stop_loss, buy_price, order, log_file)
 
     if support_level != 0:
-        support_distance = abs(support_level - current_price) / current_price * 100    
+        support_distance = abs(support_level - current_price) / current_price * 100
+        
         if support_distance <= th:
             side = 'short'
             date, buy_price, stop_loss, log_file = open_trade(side, current_price)
