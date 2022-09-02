@@ -46,8 +46,9 @@ def get_price():
     return float(market_data['result'][0]['last_price'])
 
 
+# return levels AND QUANTILE!
 def get_current_levels():
-    resists, supports, volume = analyzer.preliminary_analysis(quotation, image_flag, volume_flag)
+    resists, supports, quantile_50, quantile_75 = analyzer.preliminary_analysis(quotation, image_flag, volume_flag)
 
     if len(resists) > 0:
         resistance_level = np.array(resists)[-1]
@@ -59,7 +60,7 @@ def get_current_levels():
     else:
         support_level = 0
 
-    return resistance_level, support_level
+    return resistance_level, support_level, quantile_50, quantile_75
 
 
 def open_log():
@@ -70,7 +71,7 @@ def open_log():
     return open(file, 'w')
 
 
-def open_trade(side, current_price):
+def open_trade(side, current_price, quantile_50, quantile_75):
     log_file = open_log()
 
     date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
@@ -110,7 +111,8 @@ def open_trade(side, current_price):
         stop_loss = buy_price + buy_price * stop
 
     log_msg = log.log_open_trade(date, side, buy_price, 
-                                 stop_loss, volume, open_interest)
+                                 stop_loss, quantile_50, quantile_75, 
+                                 volume, open_interest)
                                  
     log_file.write(log_msg + '\n')
 
@@ -172,7 +174,7 @@ def trade(side, stop_loss, buy_price, order, log_file):
 
 
 calc_time = time.perf_counter()
-resistance_level, support_level = get_current_levels()
+resistance_level, support_level, quantile_50, quantile_75 = get_current_levels()
 
 while True:
     current_price = get_price()
@@ -182,7 +184,7 @@ while True:
 
         if resistance_distance <= th:
             side = 'long'
-            date, buy_price, stop_loss, log_file = open_trade(side, current_price)
+            date, buy_price, stop_loss, log_file = open_trade(side, current_price, quantile_50, quantile_75)
 
             order = True
             trade(side, stop_loss, buy_price, order, log_file)
@@ -192,16 +194,16 @@ while True:
         
         if support_distance <= th:
             side = 'short'
-            date, buy_price, stop_loss, log_file = open_trade(side, current_price)
+            date, buy_price, stop_loss, log_file = open_trade(side, current_price, quantile_50, quantile_75)
 
             order = True
             trade(side, stop_loss, buy_price, order, log_file)
     
     if (current_price > resistance_level) or (current_price < support_level):
-        resistance_level, support_level = get_current_levels()
+        resistance_level, support_level, quantile_50, quantile_75 = get_current_levels()
 
     if (resistance_level == 0) or (support_level == 0):
         new_calc_time = time.perf_counter()
         if new_calc_time - calc_time >= 5 * 60:
-            resistance_level, support_level = get_current_levels()
+            resistance_level, support_level, quantile_50, quantile_75 = get_current_levels()
             calc_time = time.perf_counter()

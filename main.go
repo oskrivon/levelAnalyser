@@ -148,7 +148,7 @@ func main() {
 
 	//th := 0.05
 
-	for _, q := range quotes[40:50] {
+	for _, q := range quotes[70:80] {
 		//resistanceLevel, supportLevel := levelAnalysis(q, false, true)
 		go trader(q, false, true)
 	}
