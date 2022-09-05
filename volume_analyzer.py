@@ -10,4 +10,4 @@ def quantile_analyzer(volumes: np.array):
     q50 = data.quantile(q=.50)[0]
     q75 = data.quantile(q=.75)[0]
 
-    return q50, q75
+    return q50.item(), q75.item()

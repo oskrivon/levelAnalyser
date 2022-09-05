@@ -9,7 +9,7 @@ from pybit import inverse_perpetual
 from pybit import usdt_perpetual
 
 import level_detector as ld
-import logger as log
+import logger
 import analyzer
 
 
@@ -20,10 +20,18 @@ quotation = str(argv[1])
 volume_flag = str_to_bool(argv[2])
 image_flag = str_to_bool(argv[3])
 
+#quotation = 'ETHUSDT'
+#volume_flag = False
+#image_flag = False
+
 stop = 0.003
 th = 0.05
 dirname = 'trades/'
 lof_dirname = 'trades/logs/'
+
+
+log = logger.Logger(quotation)
+
 
 session_unauth = inverse_perpetual.HTTP(
     endpoint="https://api.bybit.com"
@@ -63,18 +71,9 @@ def get_current_levels():
     return resistance_level, support_level, quantile_50, quantile_75
 
 
-def open_log():
-    date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H-%M')
-    path = dirname + quotation + ' ' + date + '.txt'
-    file = Path(path)
-    file.touch(exist_ok=True)
-    return open(file, 'w')
-
-
 def open_trade(side, current_price, quantile_50, quantile_75):
-    log_file = open_log()
+    log.create()
 
-    date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
     buy_price = current_price
 
     
@@ -110,29 +109,37 @@ def open_trade(side, current_price, quantile_50, quantile_75):
     if side == 'short':
         stop_loss = buy_price + buy_price * stop
 
-    log_msg = log.log_open_trade(date, side, buy_price, 
-                                 stop_loss, quantile_50, quantile_75, 
-                                 volume, open_interest)
-                                 
-    log_file.write(log_msg + '\n')
+    info = {
+        'opening time': datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        'side': side,
+        'buy price': buy_price,
+        'stop loss': stop_loss,
+        'quantile 50': quantile_50,
+        'quantile 75': quantile_75,
+        'volume': volume,
+        'open interest': open_interest
+    }
+    print(info)
+    log.update(**info)
 
-    return date, buy_price, stop_loss, log_file
+    return buy_price, stop_loss
 
 
-def close_trade(current_price, log_file):
-    date = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+def close_trade(current_price):
     sell_price = current_price
     profit = (sell_price - buy_price) / buy_price * 100
 
-    log_msg = log.log_close_trade(date, sell_price, profit)
-
-    log_file.write(log_msg + '\n')
-    log_file.close()
+    info = {
+        'closing time': datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        'sell price': sell_price,
+        'profit': profit
+    }
+    log.update(**info)
 
     #return date, sell_price, profit
 
 
-def trade(side, stop_loss, buy_price, order, log_file):
+def trade(side, stop_loss, buy_price, order):
     timestamp = []
     prices = []
 
@@ -152,7 +159,7 @@ def trade(side, stop_loss, buy_price, order, log_file):
                 df = pd.DataFrame(log_list)
                 df.to_csv(lof_dirname + quotation + ' ' + date_open + '.csv')
 
-                close_trade(current_price, log_file)
+                close_trade(current_price)
 
             if current_price > buy_price:
                 stop_loss = current_price - current_price * (stop / 3)
@@ -167,7 +174,7 @@ def trade(side, stop_loss, buy_price, order, log_file):
                 df = pd.DataFrame(log_list)
                 df.to_csv(lof_dirname + quotation + ' ' + date_open + '.csv')
 
-                close_trade(current_price, log_file)
+                close_trade(current_price)
 
             if current_price < buy_price:
                 stop_loss = current_price + current_price * (stop / 3)
@@ -184,20 +191,20 @@ while True:
 
         if resistance_distance <= th:
             side = 'long'
-            date, buy_price, stop_loss, log_file = open_trade(side, current_price, quantile_50, quantile_75)
+            buy_price, stop_loss = open_trade(side, current_price, quantile_50, quantile_75)
 
             order = True
-            trade(side, stop_loss, buy_price, order, log_file)
+            trade(side, stop_loss, buy_price, order)
 
     if support_level != 0:
         support_distance = abs(support_level - current_price) / current_price * 100
         
         if support_distance <= th:
             side = 'short'
-            date, buy_price, stop_loss, log_file = open_trade(side, current_price, quantile_50, quantile_75)
+            buy_price, stop_loss = open_trade(side, current_price, quantile_50, quantile_75)
 
             order = True
-            trade(side, stop_loss, buy_price, order, log_file)
+            trade(side, stop_loss, buy_price, order)
     
     if (current_price > resistance_level) or (current_price < support_level):
         resistance_level, support_level, quantile_50, quantile_75 = get_current_levels()
