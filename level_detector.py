@@ -1,36 +1,32 @@
-import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-
-import df_common as dfc
 
 
-def extremes_search(in_array):
-    val_max, val_min, indexes_max, indexes_min = [], [], [], []
-    for i in range(1, len(in_array)-1):
-        if in_array[i] >= in_array[i-1]:
-            if in_array[i] >= in_array[i+1]:
-                val_max.append(in_array[i])
-                indexes_max.append(i)
+def extremes_search(array_of_high, array_of_low):
+    val_max, val_min = [], []
 
-    if in_array[-1] > in_array[-2]:
-        val_max.append(in_array[-1])
-    if in_array[0] > in_array[1]:
-        val_max.append(in_array[0])
+    for i in range(1, len(array_of_high)-1):
+        if array_of_high[i] >= array_of_high[i-1]:
+            if array_of_high[i] >= array_of_high[i+1]:
+                val_max.append(array_of_high[i])
 
-    for i in range(0, len(in_array)-1):
-        if in_array[i] <= in_array[i-1]:
-            if in_array[i] <= in_array[i+1]:
-                val_min.append(in_array[i])
-                indexes_min.append(i)
+    if array_of_high[-1] > array_of_high[-2]:
+        val_max.append(array_of_high[-1])
+    if array_of_high[0] > array_of_high[1]:
+        val_max.append(array_of_high[0])
+
+
+    for i in range(0, len(array_of_low)-1):
+        if array_of_low[i] <= array_of_low[i-1]:
+            if array_of_low[i] <= array_of_low[i+1]:
+                val_min.append(array_of_low[i])
     
-    if in_array[-1] < in_array[-2]:
-        val_min.append(in_array[-1])
-    if in_array[0] < in_array[1]:
-        val_min.append(in_array[0])
+    if array_of_low[-1] < array_of_low[-2]:
+        val_min.append(array_of_low[-1])
+    if array_of_low[0] < array_of_low[1]:
+        val_min.append(array_of_low[0])
 
-    return val_max, val_min, indexes_max, indexes_min
+    return val_max, val_min
+
 
 def touch_count(in_array, threshold, touches_count):
     touches = []
@@ -54,15 +50,15 @@ def touch_count(in_array, threshold, touches_count):
     return level_prices
 
 
-def downhill_algorithm(t, p, val_max, val_min):
+def downhill_algorithm(t, p_high, p_low, val_max, val_min):
     last_time = t[-1] - np.timedelta64(20, 'm')
 
-    def level_screening(sorted_levels):
+    def level_screening(sorted_levels, source):
         levels = []
         time = t[0]
 
         for val in sorted_levels:
-            index = np.where(val == p)[0][-1]
+            index = np.where(val == source)[0][-1]
             if t[index] >= time:
                 if t[index] < last_time:            
                     levels.append(val)
@@ -73,25 +69,30 @@ def downhill_algorithm(t, p, val_max, val_min):
     sorted_max = np.sort(val_max)[::-1]
     sorted_min = np.sort(val_min)
 
-    resistance_levels = level_screening(sorted_max)
-    support_levels = level_screening(sorted_min)
+    resistance_levels = level_screening(sorted_max, p_high)
+    support_levels = level_screening(sorted_min, p_low)
     
     return resistance_levels, support_levels
 
 
-def improvise_algorithm(price: np.array, timestamp: np.array, th):
+def improvise_algorithm(high_prices: np.array, 
+                        low_prices: np.array, 
+                        timestamp: np.array, 
+                        th):
     # from dataframe to numpy array
-    p = price
+    p_high = high_prices
+    p_low = low_prices
     t = timestamp
 
     # searching local extremes
-    val_max, val_min, _, _ = extremes_search(p)
+    val_max, val_min = extremes_search(p_high, p_low)
 
     # downhill algorithm
-    resistance_levels, support_levels = downhill_algorithm(t, p, val_max, val_min)
+    resistance_levels, support_levels = \
+        downhill_algorithm(t, p_high, p_low, val_max, val_min)
 
     # set the threshold and percent difference
-    eps = th * (np.max(p) - np.min(p))
+    eps = th * (np.max(p_high) - np.min(p_low))
 
     # search in maximums
     level_touches_res = []
@@ -99,16 +100,16 @@ def improvise_algorithm(price: np.array, timestamp: np.array, th):
 
     for level in resistance_levels:
         if len(level_touches_res) == 0:
-            index = np.where(level == p)[0][-1]
-            highest = len(np.where(p[index:] > level)[0])
+            index = np.where(level == p_high)[0][-1]
+            highest = len(np.where(p_high[index:] > level)[0])
 
             if highest == 0:
                 level_touches_res.append(level)
         else:
             diff = level_touches_res[-1] - level
             if diff >= eps:
-                index = np.where(level == p)[0][-1]
-                highest = len(np.where(p[index:] > level)[0])
+                index = np.where(level == p_high)[0][-1]
+                highest = len(np.where(p_high[index:] > level)[0])
 
                 if highest == 0:
                     level_touches_res.append(level)
@@ -125,16 +126,16 @@ def improvise_algorithm(price: np.array, timestamp: np.array, th):
 
     for level in support_levels:
         if len(level_touches_sup) == 0:
-            index = np.where(level == p)[0][-1]
-            highest = len(np.where(p[index:] < level)[0])
+            index = np.where(level == p_low)[0][-1]
+            highest = len(np.where(p_low[index:] < level)[0])
 
             if highest == 0:
                 level_touches_sup.append(level)
         else:
             diff = level - level_touches_sup[-1]
             if diff >= eps:
-                index = np.where(level == p)[0][-1]
-                highest = len(np.where(p[index:] < level)[0])
+                index = np.where(level == p_low)[0][-1]
+                highest = len(np.where(p_low[index:] < level)[0])
 
                 if highest == 0:
                     level_touches_sup.append(level)

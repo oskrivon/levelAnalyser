@@ -37,7 +37,7 @@ def mpf_plot(df, quotation, resistance, support,
     save_config = dict(fname = 'images/' + quotation + '.png',
                        transparent = False)
 
-    mpf.plot(df, type='line', volume=volume_flag, style='yahoo',
+    mpf.plot(df, type='candle', volume=volume_flag, style='yahoo',
              figratio=(16,8), xrotation=0, figscale=1,
              hlines=hlines_config,
              title=tittle_config,
