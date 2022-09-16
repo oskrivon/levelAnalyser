@@ -3,7 +3,7 @@ import pandas as pd
 import df_common as dfc
 
 
-# interval exxample: '15m'
+# interval example: '15m'
 def data_preparation(quotation, interval):
     df_path = 'market_history/' + quotation + '.csv'
     df_raw = pd.read_csv(df_path)

@@ -1,5 +1,7 @@
 *.png
 *.csv
+*.yaml
+*.txt
 images/
 market_history/
 trades/
