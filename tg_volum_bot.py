@@ -1,12 +1,13 @@
-from ast import keyword
 import os
+from datetime import datetime
 import requests
+import threading
 import json
 import time
 import yaml
 from yaml.loader import SafeLoader
 
-import analyzer
+import market_screener as ms
 
 
 def get_updates(offset=0):
@@ -53,8 +54,16 @@ def telegram_send_media_group(path, token, chat_id):
 
 
 def check_message(msg, chat_id):
+    global thread_go 
+
     if msg == '/start':
         users_update(chat_id, users)
+    
+    if msg == 'stop': 
+        thread_go = False
+    
+    if msg == 'go':
+        thread_go = True
 
     keywords = msg.lower().split()
     if len(keywords) > 1: amount = keywords[1]
@@ -64,16 +73,6 @@ def reply_keyboard(chat_id, text):
     reply_markup ={ "keyboard": [["top 10", "top 20"], ["top 30"]], "resize_keyboard": True, "one_time_keyboard": True}
     data = {'chat_id': chat_id, 'text': text, 'reply_markup': json.dumps(reply_markup)}
     requests.post(f'{URL}{TOKEN}/sendMessage', data=data)
-
-
-def dictionary_sort(dictionary):
-    sorted_dict = {}
-    sorted_keys = sorted(dictionary, key=dictionary.get, reverse=True)
-
-    for w in sorted_keys:
-        sorted_dict[w] = dictionary[w]
-
-    return sorted_dict
 
 
 def send_quotes(chat_id, dictionary, amount):
@@ -104,10 +103,8 @@ def run():
                 update_id = message['update_id'] # Присваиваем ID последнего отправленного сообщения боту
                 print(f"ID пользователя: {chat_id}, Сообщение: {msg}")
 
-                #amount = check_message(msg)
                 check_message(msg, chat_id)
-                #dict_for_user = dictionary_sort(volumes)
-                #send_quotes(chat_id, dict_for_user, amount)
+
 
 
 def user_saver():
@@ -134,41 +131,73 @@ def users_update(chat_id, users):
             print(users)
         f.close()
 
+def msg_formatter(screening):
+    msg = 'quotation: 24h vol | oi | funding time | natr' + '\n'
+    for i in screening:
+        quot = i[0]
+        volume = num_formatter(i[1])
+        oi = num_formatter(i[2])
+        funding_time = date_formatter(i[3])
+        natr = round(float(i[4]), 2)
 
-def pinger():
-    while True:
-        for user in users:
-            send_quotes(user, tickers, 3)
-            #send_photo(user, 'images/ENSUSDT.png')
+        msg += quot + ': $' + str(volume) + ' | ' + str(oi) + ' | ' + \
+               str(funding_time) + ' | ' + str(natr) + '\n'
+    return msg
+
+
+def num_formatter(num):
+    num = float('{:.3g}'.format(num))
+    magnitude = 0
+    while abs(num) >= 1000:
+        magnitude += 1
+        num /= 1000.0
+    return '{}{}'.format('{:f}'.format(num).rstrip('0').rstrip('.'),
+                         ['', 'K', 'M', 'B', 'T'][magnitude])
+
+
+def date_formatter(date_time_str):
+    date = datetime.fromisoformat(date_time_str[:-1])
+    return date.strftime('%m-%d %H:%M:%S')
+
+
+def annunciator():
+    while thread_go:
+        # reading user ids
+        with open('users.yaml') as f: users = yaml.load(f, Loader=SafeLoader)
+        f.close()
+
+        screening = screener.get_screening()
+        print(screening)
+        msg = msg_formatter(screening)
+        print(msg)
+
+        for user in users:            
+            send_message(user, msg)
             telegram_send_media_group('images', TOKEN, user)
-
-        time.sleep(2)
+        
+        time.sleep(60)
 
 
 if __name__ == '__main__':
-    #volumes = analyzer.market_scoring()
-    #user_update()
     TOKEN = open('screener_token.txt', 'r').read()
     URL = 'https://api.telegram.org/bot'
 
-    tickers = {
-        'BTCUSDT': 2586,
-        'SOLUSDT': 99999,
-        'ETHUSDT': 300,
-    }
+    screener = ms.Screener()
 
+    # creating file with users id (if not exist)
     file = open('users.yaml', 'a')
     file.close()
 
     users = []
-
     with open('users.yaml') as f:
         users = yaml.load(f, Loader=SafeLoader)
         print(users)
     f.close()
 
-    print('ok')
-    #print(volumes)
-    pinger()
-    #run()
-    #send_quotes(254)
+    thread_go = True
+    th_ping = threading.Thread(target=annunciator)
+    th_ping.daemon = True
+    th_ping.start()
+
+    print('>>>> alerts launched')
+    run()

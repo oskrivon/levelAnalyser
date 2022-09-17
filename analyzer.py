@@ -1,9 +1,5 @@
 import numpy as np
 import datetime
-import time
-
-from pybit import usdt_perpetual
-from pybit import inverse_perpetual
 
 import level_detector as ld
 import data_preparer
@@ -63,30 +59,3 @@ def get_price(session, quotation):
         print(e)
         price = 0
     return price
-
-
-def market_scoring():
-    session_unauth = inverse_perpetual.HTTP(
-            endpoint="https://api.bybit.com"
-    )
-
-    quotations_ = session_unauth.query_symbol()
-
-    quotation_list = []
-
-    for i in quotations_['result']:
-        quotation_list.append(i['alias'])
-
-    session_open_value = usdt_perpetual.HTTP(
-        endpoint="https://api.bybit.com"
-    )
-
-    volumes_dict = {}
-    for q in quotation_list:
-        volume = volyme_analysis(session_open_value, q)
-        price = get_price(session_unauth, q)
-        volumes_dict[q] = volume * price
-        #time.sleep(0.005)
-    
-    print('all market data get')
-    return volumes_dict
