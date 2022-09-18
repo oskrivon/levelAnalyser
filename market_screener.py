@@ -89,10 +89,10 @@ class Screener:
         return self.add_natr(top_10_vol)
 
     
-    def get_top_natr(self):
+    def get_top_natr(self, num=10):
         market_metrics = self.get_martet_metrics()
         all_market_natr = self.add_natr(market_metrics)
-        top_10_natr = self.sorting(all_market_natr, param=4)
+        top_10_natr = self.sorting(all_market_natr, param=4)[:num]
         return top_10_natr
 
 
