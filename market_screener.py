@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+from datetime import datetime
 
 import talib
 from pybit import inverse_perpetual
@@ -29,28 +31,37 @@ class Screener:
         for r in result:
             name = r['name']
             if name[-1] == 'T': self.quotation.append(r['name'])
+        
+        self.df = pd.DataFrame({'quotation': self.quotation})
         print('>>> Screener OK, number of quotes', len(self.quotation))
 
-    def sorting(self, in_list, param=1):
-        sorted_list = (sorted(in_list, 
-            key=lambda market_slice: market_slice[param],
-            reverse=True))
-        return sorted_list
 
+    def get_market_metrics(self):
+        df = self.df[:11].copy()
+        
+        turnover_24h = []
+        open_interest = []
+        funding_rate = []
+        next_funding_time = []
 
-    def get_martet_metrics(self):
-        market_slice = []
-        for i in self.quotation:
+        for row in df.itertuples():
             try:
-                data = self.session.latest_information_for_symbol(symbol=i)['result'][0]
-                quote_scoring = [data['symbol'], 
-                                 float(data['turnover_24h']), 
-                                 float(data['open_interest']), 
-                                 data['funding_rate']]
-                market_slice.append(quote_scoring)
+                data = self.session.latest_information_for_symbol(
+                        symbol=row.quotation)['result'][0]
+
+                turnover_24h.append(float(data['turnover_24h']))
+                open_interest.append(float(data['open_interest']))
+                funding_rate.append(float(data['funding_rate']))
+                date = datetime.fromisoformat(data['next_funding_time'][:-1])
+                next_funding_time.append(date)
             except Exception as e:
                 print(e)
-        return market_slice
+        
+        df['turnover_24h'] = turnover_24h
+        df['open_interest'] = open_interest
+        df['funding_rate'] = funding_rate
+        df['next_funding_time'] = next_funding_time
+        return df
 
 
     def get_natr(self, quotation):
@@ -69,36 +80,36 @@ class Screener:
 
 
     def add_natr(self, metrics):
-        for metric in metrics:
-            quotation = metric[0]
-            metric.append(self.get_natr(quotation))        
-        return metrics
-    
-
-    def natr_all_market(self):
-        natr_list = []
-        for q in self.quotation:
-            natr_list.append(self.get_natr(q))
-        return natr_list
+        metrics_ = metrics.copy()
+        natr = []
+        for row in metrics_.itertuples():
+            quotation = row.quotation
+            natr.append(self.get_natr(quotation))
+        
+        metrics_['natr'] = natr
+        return metrics_
 
     
     def get_screening(self, num=10):
-        market_metrics = self.get_martet_metrics()
-        # param=1 - is volumes
-        top_10_vol = self.sorting(market_metrics, param=1)[:num]
+        market_metrics = self.get_market_metrics().copy()
+        sorted_df = market_metrics.sort_values(by=['turnover_24h'], ascending=False)
+        top_10_vol = sorted_df[:num]
         return self.add_natr(top_10_vol)
 
     
     def get_top_natr(self, num=10):
-        market_metrics = self.get_martet_metrics()
+        market_metrics = self.get_market_metrics()
         all_market_natr = self.add_natr(market_metrics)
-        top_10_natr = self.sorting(all_market_natr, param=4)[:num]
+        sorted_df = all_market_natr.sort_values(by='natr', ascending=False)
+        top_10_natr = sorted_df[:num]
         return top_10_natr
 
 
 if __name__ == '__main__':
     screener = Screener()
-    print(screener.quotation)
+    #metrics = screener.get_market_metrics()
+    print(screener.get_top_natr())
+    #print(screener.sorting(metrics, False, param=4))
     #top_10_vol = screener.get_top()
     #print(screener.add_natr(test_list))
     #print(screener.get_screening())

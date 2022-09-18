@@ -1,17 +1,18 @@
 from datetime import datetime
 
+
 def msg_formatter(screening, header):
     msg = header + '\n'
     msg += 'quotation: 24h vol | OI | funding rate | natr' + '\n'
-    for i in screening:
-        quot = i[0]
-        volume = num_formatter(i[1])
-        oi = num_formatter(i[2])
-        funding_time = i[3]
-        natr = round(float(i[4]), 2)
+    for row in screening.itertuples():
+        quot = row.quotation
+        volume = num_formatter(row.turnover_24h)
+        oi = num_formatter(row.open_interest)
+        funding_rate = '{:.5f}'.format(round(row.funding_rate, 5))
+        natr = round(row.natr, 2)
 
         msg += quot + ': $' + str(volume) + ' | ' + str(oi) + ' | ' + \
-               str(funding_time) + ' | ' + str(natr) + '\n'
+               str(funding_rate) + ' | ' + str(natr) + '\n'
     return msg
 
 
