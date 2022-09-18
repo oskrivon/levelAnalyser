@@ -137,7 +137,7 @@ def msg_formatter(screening):
         quot = i[0]
         volume = num_formatter(i[1])
         oi = num_formatter(i[2])
-        funding_time = date_formatter(i[3])
+        funding_time = i[3]
         natr = round(float(i[4]), 2)
 
         msg += quot + ': $' + str(volume) + ' | ' + str(oi) + ' | ' + \
@@ -166,7 +166,7 @@ def annunciator():
         with open('users.yaml') as f: users = yaml.load(f, Loader=SafeLoader)
         f.close()
 
-        screening = screener.get_screening()
+        screening = screener.get_screening(num=10)
         print(screening)
         msg = msg_formatter(screening)
         print(msg)

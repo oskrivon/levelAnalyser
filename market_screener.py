@@ -23,62 +23,82 @@ class Screener:
                 endpoint="https://api.bybit.com"
                 )
 
+        # get all quotes from bybit
+        self.quotation = []
+        result = self.session.query_symbol()['result']
+        for r in result:
+            name = r['name']
+            if name[-1] == 'T': self.quotation.append(r['name'])
+        print('>>> Screener OK, number of quotes', len(self.quotation))
 
-    def get_top_10(self):
-        quotations_ = self.session.query_symbol()
+    def sorting(self, in_list, param=1):
+        sorted_list = (sorted(in_list, 
+            key=lambda market_slice: market_slice[param],
+            reverse=True))
+        return sorted_list
 
-        quotation_list = []
+
+    def get_martet_metrics(self):
         market_slice = []
-
-        for i in quotations_['result']:
-            quotation_list.append(i['alias'])
-
-        counter = 0
-        for i in quotation_list:
+        for i in self.quotation:
             try:
                 data = self.session.latest_information_for_symbol(symbol=i)['result'][0]
                 quote_scoring = [data['symbol'], 
                                  float(data['turnover_24h']), 
                                  float(data['open_interest']), 
-                                 data['next_funding_time']]
+                                 data['funding_rate']]
                 market_slice.append(quote_scoring)
-                #counter += 1
-                #if counter >= 20: break
             except Exception as e:
                 print(e)
-                
-        sorted_slice = (sorted(market_slice, 
-            key=lambda market_slice: market_slice[1],
-            reverse=True))
-        top_10_volumes = sorted_slice#[:10]
+        return market_slice
 
-        return top_10_volumes
+
+    def get_natr(self, quotation):
+        df = data_preparer.data_preparation(quotation, '15m')
+
+        x = 100 # magick number, if < natr be worst
+        timeperiod = 14
+        
+        high = np.array(df['High'])[-x:]
+        low = np.array(df['Low'])[-x:]
+        close = np.array(df['Close'])[-x:]
+
+        natr = talib.NATR(high, low, close, timeperiod)[-1]
+
+        return natr
 
 
     def add_natr(self, metrics):
         for metric in metrics:
-            df = data_preparer.data_preparation(metric[0], '15m')
-
-            x = 100
-            timeperiod = 14
-            
-            high = np.array(df['High'])[-x:]
-            low = np.array(df['Low'])[-x:]
-            close = np.array(df['Close'])[-x:]
-
-            natr = talib.NATR(high, low, close, timeperiod)
-            metric.append(natr[-1])
-        
+            quotation = metric[0]
+            metric.append(self.get_natr(quotation))        
         return metrics
+    
+
+    def natr_all_market(self):
+        natr_list = []
+        for q in self.quotation:
+            natr_list.append(self.get_natr(q))
+        return natr_list
 
     
-    def get_screening(self):
-        top_10_vol = self.get_top_10()
+    def get_screening(self, num=10):
+        market_metrics = self.get_martet_metrics()
+        # param=1 - is volumes
+        top_10_vol = self.sorting(market_metrics, param=1)[:num]
         return self.add_natr(top_10_vol)
+
+    
+    def get_top_natr(self):
+        market_metrics = self.get_martet_metrics()
+        all_market_natr = self.add_natr(market_metrics)
+        top_10_natr = self.sorting(all_market_natr, param=4)
+        return top_10_natr
 
 
 if __name__ == '__main__':
     screener = Screener()
-    #top_10_vol = screener.get_top_10()
-    print(screener.add_natr(test_list))
+    print(screener.quotation)
+    #top_10_vol = screener.get_top()
+    #print(screener.add_natr(test_list))
     #print(screener.get_screening())
