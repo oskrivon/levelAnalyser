@@ -1,10 +1,14 @@
 from datetime import datetime
+import pandas as pd
 
 
 def msg_formatter(screening, header):
     msg = header + '\n'
+    if len(screening) > 1:
+        msg += 'upcoming funding: ' + \
+            str(pd.to_datetime(screening[1], format='%H:%M:%S')) + '\n'
     msg += 'quotation: 24h vol | OI | funding rate | natr' + '\n'
-    for row in screening.itertuples():
+    for row in screening[0].itertuples():
         quot = row.quotation
         volume = num_formatter(row.turnover_24h)
         oi = num_formatter(row.open_interest)

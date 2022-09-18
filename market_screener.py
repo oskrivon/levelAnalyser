@@ -37,7 +37,7 @@ class Screener:
 
 
     def get_market_metrics(self):
-        df = self.df[:11].copy()
+        df = self.df.copy()
         
         turnover_24h = []
         open_interest = []
@@ -91,8 +91,9 @@ class Screener:
 
     
     def get_screening(self, num=10):
-        market_metrics = self.get_market_metrics().copy()
-        sorted_df = market_metrics.sort_values(by=['turnover_24h'], ascending=False)
+        market_metrics = self.get_market_metrics()
+        sorted_df = market_metrics.sort_values(by=['turnover_24h'], 
+                                               ascending=False)
         top_10_vol = sorted_df[:num]
         return self.add_natr(top_10_vol)
 
@@ -100,15 +101,26 @@ class Screener:
     def get_top_natr(self, num=10):
         market_metrics = self.get_market_metrics()
         all_market_natr = self.add_natr(market_metrics)
-        sorted_df = all_market_natr.sort_values(by='natr', ascending=False)
+        sorted_df = all_market_natr.sort_values(by='natr', 
+                                                ascending=False)
         top_10_natr = sorted_df[:num]
         return top_10_natr
+
+    def get_upcoming_fundings(self, num=10):
+        market_metrics = self.get_market_metrics()
+        upcoming_time = market_metrics['next_funding_time'].min()
+        upcoming_fundings = \
+            market_metrics[market_metrics['next_funding_time'] == upcoming_time]
+        sorted_df = upcoming_fundings.sort_values(by=['funding_rate'], 
+                                                  ascending=False)
+        top_10_fund = sorted_df[:num]
+        return self.add_natr(top_10_fund), upcoming_time
 
 
 if __name__ == '__main__':
     screener = Screener()
     #metrics = screener.get_market_metrics()
-    print(screener.get_top_natr())
+    print(screener.get_upcoming_fundings())
     #print(screener.sorting(metrics, False, param=4))
     #top_10_vol = screener.get_top()
     #print(screener.add_natr(test_list))

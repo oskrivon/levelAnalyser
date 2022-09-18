@@ -87,19 +87,18 @@ def annunciator(screening_type, header, delay):
         # tre=y reading user ids
         try:
             with open('users.yaml') as f: users = yaml.load(f, Loader=SafeLoader)
-            f.close()        
-
-            #screening = screener.get_screening(num=10)
-            screening = screening_type(num=10)
-            print(screening)
-            msg = msg_preparer.msg_formatter(screening, header)
-            print(msg)
-
-            for user in users:            
-                sender.send_message(user, msg)
-                sender.telegram_send_media_group('images', user)
+            f.close()
         except Exception as e:
-            print('>>> users file error:', e)
+            print('>>> users file error:', e)     
+
+        screening = screening_type(num=10)
+        print(screening)
+        msg = msg_preparer.msg_formatter(screening, header)
+        print(msg)
+
+        for user in users:            
+            sender.send_message(user, msg)
+            sender.telegram_send_media_group('images', user)
         
         time.sleep(delay)
 
@@ -124,10 +123,11 @@ if __name__ == '__main__':
 
     header_volumes = 'top 10 qoutes by volume'
     header_natrs = 'top 10 qoutes by natr'
+    header_funding = 'top 10 qoutes by upcoming funding'
 
     thread_go = True
     th_ping = threading.Thread(target=annunciator, 
-                               args=(screener.get_screening, header_volumes, 120))
+                               args=(screener.get_screening, header_volumes, 1))
     th_ping.daemon = True
     th_ping.start()
 
@@ -135,6 +135,11 @@ if __name__ == '__main__':
                                 args=(screener.get_top_natr, header_natrs, 1))
     th_natrs.daemon = True
     th_natrs.start()
+
+    th_funding = threading.Thread(target=annunciator, 
+                                  args=(screener.get_upcoming_fundings, header_funding, 1))
+    th_funding.daemon = True
+    th_funding.start()
 
     print('>>> alerts launched')
     run()
