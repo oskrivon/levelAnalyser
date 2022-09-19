@@ -82,7 +82,7 @@ def users_update(chat_id, users):
         f.close()
 
 
-def annunciator(screening_type, header, delay):
+def annunciator(screening_type, header, delay, funding_flag='non'):
     while thread_go:
         # tre=y reading user ids
         try:
@@ -93,8 +93,10 @@ def annunciator(screening_type, header, delay):
 
         screening = screening_type(num=10)
         print(screening)
-        msg = msg_preparer.msg_formatter(screening, header)
+        msg = msg_preparer.msg_formatter(screening, header, funding_flag)
         print(msg)
+
+        screening[0].to_csv('file.csv') 
 
         for user in users:            
             sender.send_message(user, msg)
@@ -137,7 +139,8 @@ if __name__ == '__main__':
     th_natrs.start()
 
     th_funding = threading.Thread(target=annunciator, 
-                                  args=(screener.get_upcoming_fundings, header_funding, 1))
+                                  args=(screener.get_upcoming_fundings, 
+                                        header_funding, 1, 'get_upcoming_fundings'))
     th_funding.daemon = True
     th_funding.start()
 

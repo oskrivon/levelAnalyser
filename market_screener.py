@@ -95,7 +95,9 @@ class Screener:
         sorted_df = market_metrics.sort_values(by=['turnover_24h'], 
                                                ascending=False)
         top_10_vol = sorted_df[:num]
-        return self.add_natr(top_10_vol)
+
+        analysis_time = datetime.utcnow()
+        return self.add_natr(top_10_vol), analysis_time
 
     
     def get_top_natr(self, num=10):
@@ -104,7 +106,9 @@ class Screener:
         sorted_df = all_market_natr.sort_values(by='natr', 
                                                 ascending=False)
         top_10_natr = sorted_df[:num]
-        return top_10_natr
+
+        analysis_time = datetime.utcnow()
+        return top_10_natr, analysis_time
 
     def get_upcoming_fundings(self, num=10):
         market_metrics = self.get_market_metrics()
