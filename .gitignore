@@ -5,6 +5,7 @@
 images/
 market_history/
 trades/
+screener_results/
 /telegram_key.txt
 /correlation.txt
 xxx.py
