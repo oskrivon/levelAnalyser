@@ -9,6 +9,7 @@ from yaml.loader import SafeLoader
 import market_screener as ms
 import tg_msg_preparer as msg_preparer
 import tg_msg_sender as msg_sender
+import tg_img_table_creator as img_creator
 
 
 def get_updates(offset=0):
@@ -94,13 +95,17 @@ def annunciator(screening_type, header, delay, funding_flag='non'):
         screening = screening_type(num=10)
         print(screening)
         msg = msg_preparer.msg_formatter(screening, header, funding_flag)
+        df_formated = msg_preparer.df_formatter(screening[0])
+        img_creator.img_table_creator(df_formated, funding_flag)
+
         print(msg)
 
-        screening[0].to_csv('file.csv') 
+        #screening[0].to_csv('file.csv') 
 
         for user in users:            
             sender.send_message(user, msg)
-            sender.telegram_send_media_group('images', user)
+            sender.send_photo(user, 'screener_results/' + funding_flag + '.png')
+            sender.telegram_send_media_group(user, 'images')
         
         time.sleep(delay)
 
@@ -129,12 +134,14 @@ if __name__ == '__main__':
 
     thread_go = True
     th_ping = threading.Thread(target=annunciator, 
-                               args=(screener.get_screening, header_volumes, 1))
+                               args=(screener.get_screening, 
+                                     header_volumes, 500, 'get_screening'))
     th_ping.daemon = True
     th_ping.start()
 
     th_natrs = threading.Thread(target=annunciator, 
-                                args=(screener.get_top_natr, header_natrs, 1))
+                                args=(screener.get_top_natr, 
+                                      header_natrs, 500, 'get_top_natr'))
     th_natrs.daemon = True
     th_natrs.start()
 

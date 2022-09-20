@@ -20,6 +20,18 @@ def msg_formatter(screening, header, funding_flag='non'):
     return msg
 
 
+def df_formatter(df):
+    df_format = df.copy()
+    df_format['turnover_24h'] = \
+        df_format['turnover_24h'].apply(lambda x: num_formatter(x))
+    df_format['open_interest'] = \
+        df_format['open_interest'].apply(lambda x: num_formatter(x))
+    df_format['natr'] = \
+        df_format['natr'].apply(lambda x: round(x, 2))
+    print(df_format)
+    return df_format
+
+
 def num_formatter(num):
     num = float('{:.3g}'.format(num))
     magnitude = 0
