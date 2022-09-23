@@ -6,6 +6,7 @@ import talib
 from pybit import inverse_perpetual
 
 import data_preparer
+import connector_binance as binance
 
 test_list = \
     [['BTCUSD', 10943347813600.0, 451577968, '2022-09-17T16:00:00Z'], 
@@ -20,20 +21,35 @@ test_list = \
     ['SOLUSD', 123247447.18, 2714407, '2022-09-17T16:00:00Z']]
 
 class Screener:
-    def __init__(self):
-        self.session = inverse_perpetual.HTTP(
-                endpoint="https://api.bybit.com"
-                )
+    def __init__(self, ex_flag):
+        self.exchange = ex_flag
 
-        # get all quotes from bybit
-        self.quotation = []
-        result = self.session.query_symbol()['result']
-        for r in result:
-            name = r['name']
-            if name[-1] == 'T': self.quotation.append(r['name'])
-        
+        if self.exchange == 'bybit':
+            self.session = inverse_perpetual.HTTP(
+                    endpoint="https://api.bybit.com"
+                    )
+
+            # get all quotes from bybit
+            self.quotation = []
+            result = self.session.query_symbol()['result']
+            for r in result:
+                name = r['name']
+                if name[-1] == 'T': self.quotation.append(r['name'])
+            print(self.quotation)
+            
+        if self.exchange == 'binance':
+            self.connector = binance.BinanceConnector()
+            self.quotation = self.connector.get_all_quotes()
+            
         self.df = pd.DataFrame({'quotation': self.quotation})
+
+        print(self.df)
+
         print('>>> Screener OK, number of quotes', len(self.quotation))
+
+
+    def get_quotes_from_ex(self, connector):
+        return connector.get_all_quotes()
 
 
     def get_market_metrics(self):
@@ -122,9 +138,10 @@ class Screener:
 
 
 if __name__ == '__main__':
-    screener = Screener()
+    screener = Screener('bybit')
+    screener = Screener('binance')
     #metrics = screener.get_market_metrics()
-    print(screener.get_upcoming_fundings())
+    #print(screener.get_upcoming_fundings())
     #print(screener.sorting(metrics, False, param=4))
     #top_10_vol = screener.get_top()
     #print(screener.add_natr(test_list))
