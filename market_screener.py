@@ -35,17 +35,13 @@ class Screener:
             for r in result:
                 name = r['name']
                 if name[-1] == 'T': self.quotation.append(r['name'])
-            print(self.quotation)
+
+            self.df = pd.DataFrame({'quotation': self.quotation})
             
         if self.exchange == 'binance':
-            self.connector = binance.BinanceConnector()
-            self.quotation = self.connector.get_all_quotes()
-            
-        self.df = pd.DataFrame({'quotation': self.quotation})
+            self.connector = binance.BinanceConnector()            
 
-        print(self.df)
-
-        print('>>> Screener OK, number of quotes', len(self.quotation))
+        print('>>> Screener OK, number of quotes')
 
 
     def get_quotes_from_ex(self, connector):
@@ -53,30 +49,43 @@ class Screener:
 
 
     def get_market_metrics(self):
-        df = self.df.copy()
-        
-        turnover_24h = []
-        open_interest = []
-        funding_rate = []
-        next_funding_time = []
+        if self.exchange == 'bybit':
+            df_ = self.df.copy()
+            df_ = df_.sort_values(by='quotation', ascending=True)
+            quotes = df_['quotation'].to_list()
 
-        for row in df.itertuples():
-            try:
-                data = self.session.latest_information_for_symbol(
-                        symbol=row.quotation)['result'][0]
+            data = []
+            for q in quotes:
+                try:
+                    data.append(
+                        self.session.latest_information_for_symbol(
+                        symbol=q)['result'][0])
+                except Exception as e:
+                    print(e)
 
-                turnover_24h.append(float(data['turnover_24h']))
-                open_interest.append(float(data['open_interest']))
-                funding_rate.append(float(data['funding_rate']))
-                date = datetime.fromisoformat(data['next_funding_time'][:-1])
-                next_funding_time.append(date)
-            except Exception as e:
-                print(e)
+            quotes_ = [x['symbol'] for x in data if x['symbol'] in quotes]
+            turnover_24h = [x['turnover_24h'] for x in data if x['symbol'] in quotes]
+            open_interest = [x['open_interest'] for x in data if x['symbol'] in quotes]
+            funding_rate = [x['funding_rate'] for x in data if x['symbol'] in quotes]
+            next_funding_time = [x['next_funding_time'] for x in data if x['symbol'] in quotes]
+
+            df = pd.DataFrame({
+                'quotation': quotes_,
+                'turnover_24h': turnover_24h,
+                'open_interest': open_interest,
+                'funding_rate': funding_rate,
+                'next_funding_time': next_funding_time
+            })
         
-        df['turnover_24h'] = turnover_24h
-        df['open_interest'] = open_interest
-        df['funding_rate'] = funding_rate
-        df['next_funding_time'] = next_funding_time
+        if self.exchange == 'binance':
+            df = self.connector.get_market_data()
+
+        df[['turnover_24h', 'open_interest', 'funding_rate']] = \
+            df[['turnover_24h', 'open_interest', 'funding_rate']].astype(float)
+        df[['next_funding_time']] = df[['next_funding_time']].astype(int)
+
+        #date = datetime.fromisoformat(data['next_funding_time'][:-1])
+
         return df
 
 
@@ -138,8 +147,10 @@ class Screener:
 
 
 if __name__ == '__main__':
-    screener = Screener('bybit')
     screener = Screener('binance')
+    #print(screener.get_market_metrics())
+    screener = Screener('binance')
+    print(screener.get_market_metrics())
     #metrics = screener.get_market_metrics()
     #print(screener.get_upcoming_fundings())
     #print(screener.sorting(metrics, False, param=4))

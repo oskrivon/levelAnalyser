@@ -15,7 +15,7 @@ class BinanceConnector:
 
     # getting all quotes from binance. 
     # First get all USDT quotes, then all missing BUSD's
-    def get_all_quotes(self):
+    def add_all_quotes(self):
         r = requests.get(self.endpoint + 'fapi/v1/exchangeInfo')
         print(r)
         r_json = json.loads(r.text)
@@ -26,23 +26,86 @@ class BinanceConnector:
 
         quotes_all = [x + 'USDT' for x in quotes_USDT] + \
                      [x + 'BUSD' for x in quotes_BUSD]
-        return quotes_all
+
+        quotes_df = pd.DataFrame({'quotation': quotes_all})
+        return quotes_df
 
 
-    def get_fundings(self, df_inn):
-        df_quotes = df_inn.copy()
-        print(df_quotes)
-        quotes = df_quotes['quotation'].to_list()
+    def add_volumes(self, df_inn):
+        df_ = df_inn.copy()
+        df_ = df_.sort_values(by='quotation', ascending=True)
+        quotes = df_['quotation'].to_list()
+
+        r = requests.get(self.endpoint + 'fapi/v1/ticker/24hr')
+        ticker_24h_json = json.loads(r.text)
+        volumes = [x['quoteVolume'] for x in ticker_24h_json 
+                   if x['symbol'] in quotes]
+        quotes_ = [x['symbol'] for x in ticker_24h_json 
+                   if x['symbol'] in quotes]
+
+        quotes_sorted, volumes_sorted = zip(*sorted(zip(quotes_, volumes)))
+        with_volumes = pd.DataFrame({
+            'quotation': quotes_sorted,
+            'turnover_24h': volumes_sorted
+        })
+
+        result = df_.merge(with_volumes, how='inner', on='quotation')
+        return result
+
+
+    def add_fundings(self, df_inn):
+        df_ = df_inn.copy()
+        df_ = df_.sort_values(by='quotation', ascending=True)
+        quotes = df_['quotation'].to_list()
+
+        #print(df_quotes)
+        quotes = df_['quotation'].to_list()
         quotes_, funding_rate, funding_time = \
             stream.get_last_fundings(quotes)
 
-        df = pd.DataFrame({
+        with_fundings = pd.DataFrame({
             'quotation': quotes_,
             'funding_rate': funding_rate,
             'next_funding_time': funding_time
         })
-        print(df)
-        return df
+
+        result = df_.merge(with_fundings, how='inner', on='quotation')
+        return result
+    
+
+    def add_open_interest(self, df_inn):
+        df_ = df_inn.copy()
+        df_ = df_.sort_values(by='quotation', ascending=True)
+        quotes = df_['quotation'].to_list()
+
+        oi_list = []
+        for q in quotes:
+            endpoint = self.endpoint + 'fapi/v1/openInterest'
+            payload = {
+                'symbol': q
+            }
+            try:
+                r = requests.get(endpoint, params=payload)
+                if r.status_code == 200:
+                    oi_list.append(json.loads(r.text))
+                else:
+                    print('>>> error OI request:', r.status_code)
+            except Exception as e:
+                print(e)
+
+        quotes_ = [x['symbol'] for x in oi_list 
+                   if x['symbol'] in quotes]
+
+        oi = [x['openInterest'] for x in oi_list 
+                   if x['symbol'] in quotes]
+        
+        with_OI = pd.DataFrame({
+            'quotation': quotes_,
+            'open_interest': oi
+        })
+
+        result = df_.merge(with_OI, how='inner', on='quotation')
+        return result
 
 
     def get_server_time(self):
@@ -56,77 +119,23 @@ class BinanceConnector:
         pass
 
 
+    def get_market_data(self):
+        quotes_df = self.add_all_quotes()
+        metrics = [
+            self.add_fundings,
+            self.add_open_interest,
+            self.add_volumes
+        ]
+
+        for function in metrics:
+            result_df = function(quotes_df)
+            quotes_df = result_df
+        
+        return result_df
+
+
 if __name__ == '__main__':
     connector = BinanceConnector()
-    quotation = connector.get_all_quotes()
-    df = pd.DataFrame({'quotation': quotation})
-    print(connector.get_fundings(df))
-
-'''''''''
-    payload = {
-        'symbol': 'BTCUSDT',
-        'interval': '15m',
-        'limit': 99
-    }
-    r = requests.get(
-        'https://fapi.binance.com/fapi/v1/klines',
-        params=payload
-        )
-
-    bybit_server = 'https://fapi.binance.com/fapi/v1/klines'
-    path = 'market_history/binance/'
-
-    bybit_server = 'https://fapi.binance.com/fapi/v1/ticker/24hr'
-
-    bybit_server = 'https://fapi.binance.com/fapi/v1/fundingRate'
-    quotation = 'BTCUSDT'
-
-    while True:
-        payload = {
-            'symbol': 'BTCUSDT',
-            'limit': 10
-        }
-
-        r = requests.get(bybit_server, params=payload)
-        ticker_24h = json.loads(r.text)
-        for f in ticker_24h:
-            print(f['fundingRate'])
-            print(datetime.utcfromtimestamp(int(f['fundingTime'])/1000).strftime('%Y-%m-%d %H:%M:%S'))
-
-    while True:
-        payload = {
-            'symbol': 'BTCUSDT'
-        }
-
-        r = requests.get(bybit_server, params=payload)
-        ticker_24h = json.loads(r.text)
-        print(ticker_24h['quoteVolume'])
-
-    for quotation in symbols_all:
-        payload = {
-            'symbol': quotation,
-            'interval': '15m',
-            'limit': 99
-        }
-
-        r = requests.get(bybit_server, params=payload)
-
-        klines_raw = json.loads(r.text)
-        columns = [
-            'Open time', 'Open', 'High', 'Low', 'Close',
-            'Volume', 'Close time', 'Quote asset volume',
-            'Number of trades', 'Taker buy base asset volume',
-            'Taker buy quote asset volume', 'Ignore'
-            ]
-        df_klines = pd.DataFrame(klines_raw, columns=columns)
-        df = df_klines[[
-            'Open time', 'Open', 'High', 'Low', 
-            'Close', 'Volume'
-            ]]
-        df.to_csv(path + quotation + '.csv')
-        status_code = r.status_code
-        print(status_code)
-        if status_code != 200: 
-            print(status_code)
-            break
-      '''''''''''  
+    print(connector.get_market_data())
+    #df = pd.DataFrame({'quotation': quotation})
+    #print(connector.get_fundings(df))

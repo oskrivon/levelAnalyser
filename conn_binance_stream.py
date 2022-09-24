@@ -20,7 +20,7 @@ def get_last_fundings(quotes):
 
     quotes = [x['s'] for x in fundings_json if x['s'] in quotes]
     funding_rate = [x['r'] for x in fundings_json if x['s'] in quotes]
-    funding_time = [x['r'] for x in fundings_json if x['s'] in quotes]
+    funding_time = [x['T'] for x in fundings_json if x['s'] in quotes]
 
     ws.close()
     return quotes, funding_rate, funding_time
