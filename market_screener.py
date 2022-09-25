@@ -82,7 +82,7 @@ class Screener:
 
         df[['turnover_24h', 'open_interest', 'funding_rate']] = \
             df[['turnover_24h', 'open_interest', 'funding_rate']].astype(float)
-        df[['next_funding_time']] = df[['next_funding_time']].astype(int)
+        #df[['next_funding_time']] = df[['next_funding_time']].astype(int)
 
         #date = datetime.fromisoformat(data['next_funding_time'][:-1])
 
@@ -90,14 +90,19 @@ class Screener:
 
 
     def get_natr(self, quotation):
-        df = data_preparer.data_preparation(quotation, '15m')
-
-        x = 100 # magick number, if < natr be worst
-        timeperiod = 14
+        if self.exchange == 'bybit':
+            df = data_preparer.data_preparation(quotation, '15m')
         
-        high = np.array(df['High'])[-x:]
-        low = np.array(df['Low'])[-x:]
-        close = np.array(df['Close'])[-x:]
+        if self.exchange == 'binance':
+            df = self.connector.get_kline(quotation, '15m')
+
+            x = 100 # magick number, if < natr be worst
+            timeperiod = 14
+            
+            high = np.array(df['High'])[-x:]
+            low = np.array(df['Low'])[-x:]
+            close = np.array(df['Close'])[-x:]
+
 
         natr = talib.NATR(high, low, close, timeperiod)[-1]
 
@@ -137,20 +142,20 @@ class Screener:
 
     def get_upcoming_fundings(self, num=10):
         market_metrics = self.get_market_metrics()
-        upcoming_time = market_metrics['next_funding_time'].min()
+        upcoming_time_row = market_metrics['next_funding_time'].min()
         upcoming_fundings = \
-            market_metrics[market_metrics['next_funding_time'] == upcoming_time]
+            market_metrics[market_metrics['next_funding_time'] == upcoming_time_row]
         sorted_df = upcoming_fundings.sort_values(by=['funding_rate'], 
                                                   ascending=False)
         top_10_fund = sorted_df[:num]
+
+        upcoming_time = datetime.fromtimestamp(int(upcoming_time_row)/1000).strftime('%Y-%m-%d %H:%M:%S')
         return self.add_natr(top_10_fund), upcoming_time
 
 
 if __name__ == '__main__':
     screener = Screener('binance')
-    #print(screener.get_market_metrics())
-    screener = Screener('binance')
-    print(screener.get_market_metrics())
+    print(screener.get_screening())
     #metrics = screener.get_market_metrics()
     #print(screener.get_upcoming_fundings())
     #print(screener.sorting(metrics, False, param=4))

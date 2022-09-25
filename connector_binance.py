@@ -28,7 +28,8 @@ class BinanceConnector:
                      [x + 'BUSD' for x in quotes_BUSD]
 
         quotes_df = pd.DataFrame({'quotation': quotes_all})
-        return quotes_df
+        #print(quotes_df.drop_duplicates().sort_values(by='quotation', ascending=True)[30:50])
+        return quotes_df.drop_duplicates()
 
 
     def add_volumes(self, df_inn):
@@ -113,10 +114,34 @@ class BinanceConnector:
         server_time = json.loads(r.text)['serverTime']
         return server_time
 
-    
-    def get_klines(self):
-        r = requests.get(self.endpoint + 'fapi/v1/klines')
-        pass
+
+    def get_kline(self, quotation, interval):
+        endpoint = self.endpoint + 'fapi/v1/klines'
+        payload = {
+            'symbol': quotation,
+            'interval': interval,
+            'limit': 99
+        }
+
+        df = 0
+        try:
+            r = requests.get(endpoint, params=payload)
+            if r.status_code == 200:
+                data = json.loads(r.text)
+                columns = [
+                    'Open time', 'Open', 'High', 'Low', 'Close',
+                    'Volume', 'Close time', 'Quote asset volume',
+                    'Number of trades', 'Taker buy base asset volume',
+                    'Taker buy quote asset volume', 'Ignore'
+                    ]
+                df = pd.DataFrame(data, columns=columns)
+            else:
+                print('>>> error OI request:', r.status_code)
+        except Exception as e:
+            print(e)
+        
+        result = df[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
+        return result
 
 
     def get_market_data(self):
@@ -136,6 +161,6 @@ class BinanceConnector:
 
 if __name__ == '__main__':
     connector = BinanceConnector()
-    print(connector.get_market_data())
+    print(connector.get_kline('BTCUSDT'))
     #df = pd.DataFrame({'quotation': quotation})
     #print(connector.get_fundings(df))

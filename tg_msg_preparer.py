@@ -6,7 +6,8 @@ def msg_formatter(screening, header, funding_flag='non'):
     msg = header + '\n'
     if funding_flag == 'get_upcoming_fundings':
         msg += 'upcoming funding: ' + \
-            str(pd.to_datetime(screening[1], format='%H:%M:%S')) + '\n'
+            str(screening[1]) + '\n'
+            #str(pd.to_datetime(screening[1], format='%H:%M:%S')) + '\n'
     msg += 'quotation: 24h vol | OI | funding rate | natr' + '\n'
     for row in screening[0].itertuples():
         quot = row.quotation

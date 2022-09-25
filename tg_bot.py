@@ -115,7 +115,7 @@ if __name__ == '__main__':
     TOKEN = open(path, 'r').read()
     URL = 'https://api.telegram.org/bot'
 
-    screener = ms.Screener()
+    screener = ms.Screener('binance')
     sender = msg_sender.TgSender(TOKEN, URL)
 
     # creating file with users id (if not exist)
