@@ -17,7 +17,8 @@ def msg_formatter(screening, header, funding_flag='non'):
         natr = round(row.natr, 2)
 
         msg += quot + ': $' + str(volume) + ' | ' + str(oi) + ' | ' + \
-               str(funding_rate) + ' | ' + str(natr) + '\n'
+            str(funding_rate) + ' | ' + str(natr) + '\n'
+
     return msg
 
 

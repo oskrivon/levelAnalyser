@@ -17,10 +17,11 @@ class BinanceConnector:
     # First get all USDT quotes, then all missing BUSD's
     def add_all_quotes(self):
         r = requests.get(self.endpoint + 'fapi/v1/exchangeInfo')
-        print(r)
         r_json = json.loads(r.text)
+
         symbols = r_json['symbols']
         quotes_USDT = [x['baseAsset'] for x in symbols if 'USDT' in x['quoteAsset']]
+
         quotes_BUSD = [x['baseAsset'] for x in symbols if 'BUSD' in x['quoteAsset'] and 
                        x['baseAsset'] not in quotes_USDT]
 

@@ -41,7 +41,7 @@ class Screener:
         if self.exchange == 'binance':
             self.connector = binance.BinanceConnector()            
 
-        print('>>> Screener OK, number of quotes')
+        print('>>> Screener OK')
 
 
     def get_quotes_from_ex(self, connector):
@@ -111,6 +111,7 @@ class Screener:
 
     def add_natr(self, metrics):
         metrics_ = metrics.copy()
+        print(metrics_['quotation'].to_list())
         natr = []
         for row in metrics_.itertuples():
             quotation = row.quotation
@@ -155,7 +156,7 @@ class Screener:
 
 if __name__ == '__main__':
     screener = Screener('binance')
-    print(screener.get_screening())
+    print(screener.get_top_natr())
     #metrics = screener.get_market_metrics()
     #print(screener.get_upcoming_fundings())
     #print(screener.sorting(metrics, False, param=4))
