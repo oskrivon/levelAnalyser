@@ -94,7 +94,7 @@ class Screener:
             df = data_preparer.data_preparation(quotation, '15m')
         
         if self.exchange == 'binance':
-            df = self.connector.get_kline(quotation, '15m')
+            df = self.connector.get_kline(quotation, '5m')
 
             x = 100 # magick number, if < natr be worst
             timeperiod = 14
@@ -111,7 +111,7 @@ class Screener:
 
     def add_natr(self, metrics):
         metrics_ = metrics.copy()
-        print(metrics_['quotation'].to_list())
+
         natr = []
         for row in metrics_.itertuples():
             quotation = row.quotation

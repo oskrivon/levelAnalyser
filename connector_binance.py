@@ -121,7 +121,7 @@ class BinanceConnector:
         payload = {
             'symbol': quotation,
             'interval': interval,
-            'limit': 99
+            'limit': 15
         }
 
         df = 0

@@ -2,9 +2,9 @@ from datetime import datetime
 import pandas as pd
 
 
-def msg_formatter(screening, header, funding_flag='non'):
+def msg_formatter(screening, header, funding_flag=False):
     msg = header + '\n'
-    if funding_flag == 'get_upcoming_fundings':
+    if funding_flag == True: # True - if need return the time of funding
         msg += 'upcoming funding: ' + \
             str(screening[1]) + '\n'
             #str(pd.to_datetime(screening[1], format='%H:%M:%S')) + '\n'
