@@ -83,13 +83,6 @@ def receiving_messages():
                 check_message(msg, chat_id)
 
 
-def user_saver():
-    file = open('users', 'w+')
-    user = [158, 98752]
-    yaml.dump(user, file, sort_keys=False, default_flow_style=False)
-    file.close()
-
-
 def users_update(chat_id, users):
     #file = open('users.yaml', 'a+')
     if chat_id in users:
@@ -115,7 +108,7 @@ def annunciator(screening_type, header, delay, funding_flag='non'):
             with open('users.yaml') as f: users = yaml.load(f, Loader=SafeLoader)
             f.close()
         except Exception as e:
-            print('>>> users file error:', e)   
+            print('>>> users file error:', e)
 
         msg_flag = True
 
@@ -199,12 +192,6 @@ if __name__ == '__main__':
                                         header_funding, 60, 'get_upcoming_fundings'))
     th_funding.daemon = True
     th_funding.start()
-
-    #th_msg_receiving = threading.Thread(
-    #    target=receiving_messages
-    #)
-    #th_msg_receiving.daemon = True
-    #th_msg_receiving.start()
 
     print('>>> alerts launched')
     receiving_messages()
