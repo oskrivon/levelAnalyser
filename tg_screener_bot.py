@@ -3,6 +3,7 @@ import json
 import yaml
 import time
 import threading
+import schedule
 import datetime
 
 import market_screener as ms
@@ -173,24 +174,20 @@ class ScreenerBot:
             time.sleep(delay)
 
     def alert(self):
-        fundings_hours = [2, 10, 19]
-        flag_break_hours = [3, 11, 20]
-        calculating_minuts = 52
+        for user in self.users:
+            self.sender.send_message(
+                user, self.msg_fundings)
+            self.sender.send_photo(
+                user, 'screener_results/fundings.png')
 
-        msg_flag = True
-        
+    
+    def alert_schedule(self):
+        schedule.every().day.at("2:53:00").do(self.alert)
+        schedule.every().day.at("10:53:00").do(self.alert)
+        schedule.every().day.at("18:53:00").do(self.alert)
+
         while True:
-            now = datetime.datetime.now()
-
-            if (now.hour in fundings_hours and 
-                now.minute > calculating_minuts and msg_flag == True):
-                msg_flag = False
-                for user in self.users:
-                    self.sender.send_message(user, self.msg_fundings)
-                    self.sender.send_photo(user, 'screener_results/fundings.png')
-            
-            if now.hour in flag_break_hours and msg_flag == False:
-                msg_flag = True
+            schedule.run_pending()
     
 
     def run(self):
@@ -222,7 +219,7 @@ class ScreenerBot:
         th_funding.start()
 
         th_alert = threading.Thread(
-            target=self.alert
+            target=self.alert_schedule
         )
         th_alert.daemon = True
         th_alert.start()
